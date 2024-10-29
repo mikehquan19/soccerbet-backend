@@ -211,22 +211,23 @@ def get_total_goals_bets(match_id: int, home_team: str, away_team: str) -> list:
     # process the data to be feedable to the database 
     total_goals_bet_list = [] 
     for time_type in list(json_response.keys()): 
-        if json_response[time_type] is not None: 
-            for total_goals_odd in json_response[time_type]: 
-                # if the total goals are under or over, and the target num of goals 
-                total_goals_bet_value = total_goals_odd["value"].split()
-                under_or_over = total_goals_bet_value[0] 
-                num_goals = float(total_goals_bet_value[1])
+        if json_response[time_type] is None: 
+            continue
+        for total_goals_odd in json_response[time_type]: 
+            # if the total goals are under or over, and the target num of goals 
+            total_goals_bet_value = total_goals_odd["value"].split()
+            under_or_over = total_goals_bet_value[0] 
+            num_goals = float(total_goals_bet_value[1])
 
-                # add the odd to the list 
-                total_goals_bet_list.append({
-                    "match": f"{home_team} vs {away_team}", 
-                    "time_type": time_type,
-                    "under_or_over": under_or_over, 
-                    "num_goals": num_goals, 
-                    # convert the obtained decimal odd and covert them to American odd 
-                    "odd": convert_american_odd(float(total_goals_odd["odd"])),
-                })
+            # add the odd to the list 
+            total_goals_bet_list.append({
+                "match": f"{home_team} vs {away_team}", 
+                "time_type": time_type,
+                "under_or_over": under_or_over, 
+                "num_goals": num_goals, 
+                # convert the obtained decimal odd and covert them to American odd 
+                "odd": convert_american_odd(float(total_goals_odd["odd"])),
+            })
     return total_goals_bet_list
 
 
