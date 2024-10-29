@@ -170,33 +170,35 @@ def get_moneyline_bets(bet_type: str, match_id: int, home_team: str, away_team: 
     # process the raw data (the pain in the neck)
     moneyline_bet_list = []
     for time_type in list(json_response): 
-        if json_response[time_type] is not None: 
-            for moneyline_odd in json_response[time_type]: 
-                moneyline_bet_value = moneyline_odd["value"].split()
-                if moneyline_bet_value[0] == "Home": 
-                    bet_team = home_team
-                elif moneyline_bet_value[0] == "Away": 
-                    bet_team = away_team 
-                elif moneyline_bet_value[0] == "Draw": 
-                    # if the type of bet is moneyline, account for draw. 
-                    if bet_type == "handicap": 
-                        continue # Otherwise, go the next bets 
-                    bet_team = moneyline_bet_value[0] 
-
-                # stucture of the moneyline (or handicap) bet 
-                moneyline_bet = {
-                    "match": f"{home_team} vs {away_team}",
-                    "time_type": time_type, # indicate if  the handicap is for half_time or full_time
-                    "bet_team": bet_team, 
-                    # convert the obtained decimal odd and covert them to American odd 
-                    "odd": convert_american_odd(float(moneyline_odd["odd"])), 
-                }
-                # if the type of moneyline is handicap, add the handicap coverage 
+        if json_response[time_type] is None: 
+            continue
+        for moneyline_odd in json_response[time_type]: 
+            moneyline_bet_value = moneyline_odd["value"].split()
+            if moneyline_bet_value[0] == "Home": 
+                bet_team = home_team
+            elif moneyline_bet_value[0] == "Away": 
+                bet_team = away_team 
+            else: 
+                # if the type of bet is moneyline, account for draw. 
+                # Otherwise, go the next bets 
                 if bet_type == "handicap": 
-                    handicap_cover = float(moneyline_bet_value[1])
-                    moneyline_bet["handicap_cover"] = handicap_cover
-                # add the bet of the list 
-                moneyline_bet_list.append(moneyline_bet)    
+                    continue
+                bet_team = moneyline_bet_value[0] 
+
+            # stucture of the moneyline (or handicap) bet 
+            moneyline_bet = {
+                "match": f"{home_team} vs {away_team}",
+                "time_type": time_type, # indicate if  the handicap is for half_time or full_time
+                "bet_team": bet_team, 
+                # convert the obtained decimal odd and covert them to American odd 
+                "odd": convert_american_odd(float(moneyline_odd["odd"])), 
+            }
+            # if the type of moneyline is handicap, add the handicap coverage 
+            if bet_type == "handicap": 
+                handicap_cover = float(moneyline_bet_value[1])
+                moneyline_bet["handicap_cover"] = handicap_cover
+            # add the bet of the list 
+            moneyline_bet_list.append(moneyline_bet)    
     return moneyline_bet_list
 
 
