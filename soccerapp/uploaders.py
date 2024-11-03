@@ -2,11 +2,8 @@ from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 from .api import (
-    get_not_started_matches, 
-    get_moneyline_bets, 
-    get_total_goals_bets, 
-    get_match_score, 
-    get_teams,
+    get_not_started_matches, get_moneyline_bets, 
+    get_total_goals_bets, get_match_score, get_teams,
 )
 from .settle import settle_moneyline_bet_list, settle_handicap_bet_list, settle_total_goals_bet_list
 from .models import (
@@ -18,9 +15,10 @@ import traceback
 
 
 # function to upload data about the teams (for the comment and section part of the website)
+# CALLED EVERY YEAR 
 @transaction.atomic
 def upload_teams() -> None: 
-    leagues = {"Premiere League": 39, "La Liga": 140}
+    leagues = {"Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
     try: 
         for league_name in list(leagues.keys()): 
             api_teams_data = get_teams(leagues[league_name])
@@ -44,35 +42,95 @@ def upload_teams() -> None:
         traceback.print_exc()
 
 
+# NESTING THE FUNCTION WITHIN 1 TRANSACTION
+LEAGUES = {"Champions League": 2, "Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
+# CALLED EVERY WEEK at 0 hours
+@transaction.atomic
+def upload_matches_and_bets(): 
+    for league_name in list(LEAGUES.keys()): 
+        print(f"For {league_name}")
+        league_match_list = upload_matches(league_name, LEAGUES[league_name])
+        upload_match_bets(league_match_list)
+
+
+# CALLED EVERY HOUR AT 0 hours
+@transaction.atomic
+def update_scores_and_settle(): 
+    for league_name in list(LEAGUES.keys()): 
+        # matches are finished, and their associated bets are settled
+        updated_match_list = update_match_scores(LEAGUES[league_name])
+        settle_bets(updated_match_list)
+
+
+# CALLED EVERY DAY AT 0 hours
+# delete the queryset of the bet infos and finished matches that have been their past days limit 
+@transaction.atomic
+def delete_past_betinfos_and_matches() -> None: 
+    try:
+        # bet info's past day limit is 14 days (2 weeks)
+        info_filter_date = date.today() - timedelta(weeks=2)
+        # delete the list of moneyline bet infos 
+        past_moneyline_bet_info = MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
+        if past_moneyline_bet_info.exists(): 
+            past_moneyline_bet_info.delete()
+            print("Past moneyline bets deleted successfully!")
+        else: 
+            print("No moneyline bets to delete")
+
+        # delete the list of handicap bet infos 
+        past_handicap_bet_info = HandicapBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
+        if past_handicap_bet_info.exists(): 
+            past_handicap_bet_info.delete()
+            print("Past handicap bets deleted successfully!")
+        else: 
+            print("No handicap bets to delete")
+
+        # delete the list of total goals bet infos 
+        past_totalgoals_bet_info = TotalGoalsBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
+        if past_totalgoals_bet_info.exists(): 
+            past_totalgoals_bet_info.delete()
+            print("Past total goals bets deleted successfully!")
+        else: 
+            print("No total goals bet to delete")
+
+        # matches's past day limit is 1 month 
+        match_filter_date = date.today() - timedelta(days=30)
+        # delete the list of finished matches 
+        past_finished_matches = Match.objects.filter(status="Finished", updated_date__lt=match_filter_date)
+        if past_finished_matches.exists(): 
+            past_finished_matches.delete() 
+            print("Past matches deleted successfully!")
+        else: 
+            print("No matches to delete.")
+
+    except Exception as e: 
+        print("Error occured, ", e)
+
+
+# process the date and return the string for API calling
+def get_date_str(arg_date: date) -> str: 
+     # process the first date 
+    year, month, day = arg_date.year, arg_date.month, arg_date.day
+    if month < 10 and day < 10: 
+        date_str = f"{year}-0{month}-0{day}"
+    elif month < 10 and day > 10: 
+        date_str = f"{year}-0{month}-{day}"
+    elif month > 10 and day < 10: 
+        date_str = f"{year}-{month}-0{day}"
+    else: 
+        date_str = f"{year}-{month}-{day}"
+    return date_str
+
+
 # upload data about the matches and bets for each match to the database 
 def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]: 
-    # last of the week 
-    last_date = date.today() + timedelta(days=7)
+    # process the first date and last date of the week 
+    from_date_str = get_date_str(date.today())
+    to_date_str = get_date_str(date.today() + timedelta(days=7))
 
-    # process the first date 
-    if date.today().month < 10 and date.today().day < 10: 
-        from_date = f"{date.today().year}-0{date.today().month}-0{date.today().day}"
-    elif date.today().month < 10 and date.today().day > 10: 
-        from_date = f"{date.today().year}-0{date.today().month}-{date.today().day}"
-    elif date.today().month > 10 and date.today().day < 10: 
-        from_date = f"{date.today().year}-{date.today().month}-0{date.today().day}"
-    else: 
-        from_date = f"{date.today().year}-{date.today().month}-{date.today().day}"
-   
-    # process the last date 
-    if last_date.month < 10 and last_date.day < 10: 
-        to_date = f"{last_date.year}-0{last_date.month}-0{last_date.day}"
-    elif last_date.month < 10 and last_date.day > 10: 
-        to_date = f"{last_date.year}-0{last_date.month}-{last_date.day}"
-    elif last_date.month > 10 and last_date.day < 10: 
-        to_date =f"{last_date.year}-{last_date.month}-0{last_date.day}"
-    else: 
-        to_date = f"{last_date.year}-{last_date.month}-{last_date.day}"
-
-    from_date, to_date = "2024-10-22", "2024-10-29"
-
+    # from_date_str, to_date_str = "2024-10-22", "2024-10-29" # used for testing 
     try: 
-        api_matches_data = get_not_started_matches(league_id, from_date, to_date)
+        api_matches_data = get_not_started_matches(league_id, from_date_str, to_date_str)
         not_started_matches= [] # list of Match objects 
 
         for match in api_matches_data: 
@@ -153,19 +211,12 @@ def upload_match_bets(arg_matches: QuerySet[Match]) -> None:
 
 # update the score of the matches 
 def update_match_scores(league_id: int) -> QuerySet[Match]: 
-    # process the first date 
-    if date.today().month < 10 and date.today().day < 10: 
-        from_date = f"{date.today().year}-0{date.today().month}-0{date.today().day}"
-    elif date.today().month < 10 and date.today().day >= 10: 
-        from_date = f"{date.today().year}-0{date.today().month}-{date.today().day}"
-    elif date.today().month >= 10 and date.today().day < 10: 
-        from_date = f"{date.today().year}-{date.today().month}-0{date.today().day}"
-    else: 
-        from_date = f"{date.today().year}-{date.today().month}-{date.today().day}"
+    # process the given date 
+    given_date_str = get_date_str(date.today())
 
-    # from_date = "2024-10-23" # used for testing 
+    # given_date_str = "2024-10-23" # used for testing 
     try: 
-        match_scores_data = get_match_score(league_id, from_date)
+        match_scores_data = get_match_score(league_id, given_date_str)
         queried_matches = [] # list of Match objects 
 
         for i, match_score in enumerate(match_scores_data):
@@ -228,49 +279,6 @@ def settle_bets(arg_matches: QuerySet[Match]) -> None:
     except Exception as e: 
         traceback.print_exc()
 
-
-# NESTING THE FUNCTION WITHIN 1 TRANSACTION
-LEAGUES = {"Champions League": 2, "Premiere League": 39, "La Liga": 140}
-# CALLED EVERY WEEK
-@transaction.atomic
-def upload_matches_and_bets(): 
-    for league_name in list(LEAGUES.keys()): 
-        print(f"For {league_name}")
-        league_match_list = upload_matches(league_name, LEAGUES[league_name])
-        upload_match_bets(league_match_list)
-
-
-# CALLED EVERY HOUR
-@transaction.atomic
-def update_scores_and_settle(): 
-    for league_name in list(LEAGUES.keys()): 
-        updated_match_list = update_match_scores(LEAGUES[league_name])
-        settle_bets(updated_match_list)
-
-
-# CALLED EVERY DAY
-# delete the queryset of the bet infos and finished matches that have been past 7 days limit 
-@transaction.atomic
-def delete_past_betinfos_and_matches() -> None: 
-    try:
-        past_date = date.today() - timedelta(days=7)
-        # delete the list of moneyline bet infos 
-        past_moneyline_bet_infos = MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=past_date)
-        past_moneyline_bet_infos.delete()
-
-        # delete the list of handicap bet infos 
-        past_handicap_bet_infos = HandicapBetInfo.objects.filter(status="Settled", settled_date__lt=past_date)
-        past_handicap_bet_infos.delete()
-
-        # delete the list of total goals bet infos 
-        past_total_goals_bet_infos = TotalGoalsBetInfo.objects.filter(status="Settled", settled_date__lt=past_date)
-        past_total_goals_bet_infos.delete()
-
-        # delete the list of finished matches 
-        past_finished_matches = Match.objects.filter(status="Finished", updated_date__lt=past_date)
-        past_finished_matches.delete() 
-    except Exception as e: 
-        print("Error occured, ", e)
 
 def main(): 
     upload_teams()

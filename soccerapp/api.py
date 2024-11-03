@@ -3,7 +3,7 @@ import json
 import os
 
 # the API key
-API_KEY = os.environ.get("API_KEY") # API-KEY OBTAINED FROM SUBSCRIBING TO API-FOOTBALL
+API_KEY = "ff80d75fb2fa72353ed4c5092a474eac" # API-KEY OBTAINED FROM SUBSCRIBING TO API-FOOTBALL
 base_url = "https://v3.football.api-sports.io"
 payload = {}
 headers = {
