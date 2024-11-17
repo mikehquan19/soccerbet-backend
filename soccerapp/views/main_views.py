@@ -30,10 +30,10 @@ LEAGUES_NAME_MAP = {
 TIME_TYPE_MAP = {"half_time": "half time", "full_time": "full time"}
 
 # view to list all of the team according to the league 
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def team_list(request, league: str) -> Response: 
-    if request.method == "GET": 
+class TeamList(APIView): 
+    permission_classes = [AllowAny]
+
+    def get(self, request, league: str, format=None) -> Response: 
         # get the list of teams of the league
         team_list = Team.objects.filter(league=LEAGUES_NAME_MAP[league])
         team_list_serizalizer = TeamSerializer(team_list, many=True)
@@ -41,15 +41,14 @@ def team_list(request, league: str) -> Response:
 
 
 # view to list all of the matches according to the league
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def match_list(request, league: str, status: str) -> Response: 
-    status_map = {
-        "NF": "Not Finished", 
-        "FN": "Finished"
-    }
-    if request.method == "GET": 
-        # get the list of matches depending on the league parameter 
+class MatchList(APIView): 
+    permission_classes = [AllowAny]
+
+    def get(self, request, league: str, status: str) -> Response: 
+        status_map = {
+            "NF": "Not Finished", 
+            "FN": "Finished"
+        }
         if league == "all": 
             match_list = Match.objects.filter(status=status_map[status])
         else: 
@@ -59,16 +58,16 @@ def match_list(request, league: str, status: str) -> Response:
             )
         match_list_serializer = MatchSerializer(match_list, many=True)
         return Response(match_list_serializer.data)
-    
 
+    
 # TODO: complete this views 
 # view to handle the rankings of the league
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def rankings(request, league: str) -> Response: 
-    if request.method == "GET": 
+class Rankings(APIView): 
+    permission_classes = [AllowAny]
+
+    def get(self, request, league: str) -> Response: 
         return Response(status=status.HTTP_204_NO_CONTENT)
-    
+     
     
 """
 VIEWS FOR BET INFO

@@ -1,3 +1,9 @@
+"""
+VIEWS FOR USER'S BET LIST
+NOTE: THE VIEWS HERE WILL BE ONLY ACCESSIBLE BY AUTHENTICATED USER,
+    SO THEY WILL BE IMPLEMENTED PERMISSION CLASSES ISAUTHENTICATED 
+"""
+
 from django.shortcuts import get_object_or_404
 from django.db import transaction
 from rest_framework import status, generics
@@ -10,13 +16,7 @@ from soccerapp.serializers import (
     UserTotalGoalsBetSerializer
 )
 
-"""
 
-VIEWS FOR USER'S BET LIST
-NOTE: THE VIEWS HERE WILL BE ONLY ACCESSIBLE BY AUTHENTICATED USER,
-        SO THEY WILL BE IMPLEMENTED PERMISSION CLASSES ISAUTHENTICATED 
-
-"""
 # views to list all of the moneyline bets and create new bet
 class UserMoneylineBetList(APIView): 
     # get the response data (list of moneyline bet of the given user)

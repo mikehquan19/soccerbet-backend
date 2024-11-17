@@ -58,7 +58,8 @@ def upload_matches_and_bets():
 def update_scores_and_settle(): 
     for league_name in list(LEAGUES.keys()): 
         # matches are finished, and their associated bets are settled
-        updated_match_list = update_match_scores(LEAGUES[league_name])
+        print(f"For {league_name}")
+        updated_match_list = update_match_scores(league_name, LEAGUES[league_name])
         settle_bets(updated_match_list)
 
 
@@ -68,7 +69,7 @@ def update_scores_and_settle():
 def delete_past_betinfos_and_matches() -> None: 
     try:
         # bet info's past day limit is 14 days (2 weeks)
-        info_filter_date = date.today() - timedelta(weeks=2)
+        info_filter_date = date.today() - timedelta(days=15)
         # delete the list of moneyline bet infos 
         past_moneyline_bet_info = MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
         if past_moneyline_bet_info.exists(): 
@@ -210,7 +211,7 @@ def upload_match_bets(arg_matches: QuerySet[Match]) -> None:
 
 
 # update the score of the matches 
-def update_match_scores(league_id: int) -> QuerySet[Match]: 
+def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
     # process the given date 
     given_date_str = get_date_str(date.today())
 
@@ -239,10 +240,10 @@ def update_match_scores(league_id: int) -> QuerySet[Match]:
             # get the updated queryset 
             updated_matches = Match.objects.filter(match_id__in=[match.match_id for match in queried_matches])
             # notify the user that matches have been updated 
-            print(f"{num_updated_matches} finished matches updated successfully!")  
+            print(f"{num_updated_matches} finished matches of {league_name} updated successfully!")  
         else: 
             updated_matches = Match.objects.none() 
-            print("No matches finished that need to be updated!")         
+            print(f"No matches of {league_name} finished that need to be updated!")         
     # if an error occured , print the error
     except Exception as e: 
         traceback.print_exc()
@@ -254,28 +255,31 @@ def update_match_scores(league_id: int) -> QuerySet[Match]:
 def settle_bets(arg_matches: QuerySet[Match]) -> None: 
     try: 
         for match in arg_matches: 
+            print(f"For match {match.match_id}")
             # settle all the moneyline bets of the match 
-            moneyline_bet_infos = MoneylineBetInfo.objects.filter(match=match)
-            for bet_info in moneyline_bet_infos: 
+            moneyline_bet_info_list = MoneylineBetInfo.objects.filter(match=match)
+            for bet_info in moneyline_bet_info_list: 
                 moneyline_bets = UserMoneylineBet.objects.filter(bet_info=bet_info)
                 # settle the list of moneyline bets 
                 settle_moneyline_bet_list(moneyline_bets)
-                # update the status and settled date of list of bets 
-                moneyline_bets.update({"status": "Settled", "settled_date": date.today()})
+            # update the status and settled date of list of bet info
+            moneyline_bet_info_list.update(status="Settled", settled_date=date.today())
                         
             # settle all the handicap bets of the match 
-            handicap_bet_infos = HandicapBetInfo.objects.filter(match=match)
-            for bet_info in handicap_bet_infos: 
+            handicap_bet_info_list = HandicapBetInfo.objects.filter(match=match)
+            for bet_info in handicap_bet_info_list: 
                 handicap_bets = UserHandicapBet.objects.filter(bet_info=bet_info)
                 settle_handicap_bet_list(handicap_bets)
-                handicap_bets.update({"status": "Settled", "settled_date": date.today()})
+            # update the status and settled date
+            handicap_bet_info_list.update(status="Settled", settled_date=date.today())
                             
             # settle all the total goals bets of the match 
-            total_goals_bet_infos = TotalGoalsBetInfo.objects.filter(match=match)
-            for bet_info in total_goals_bet_infos: 
+            totalgoals_bet_info_list = TotalGoalsBetInfo.objects.filter(match=match)
+            for bet_info in totalgoals_bet_info_list: 
                 total_goals_bets = UserTotalGoalsBet.objects.filter(bet_info=bet_info)
                 settle_total_goals_bet_list(total_goals_bets)
-                total_goals_bets.update({"status": "Settled", "settled_date": date.today()})
+            # update the status and settled date 
+            totalgoals_bet_info_list.update(status="Settled", settled_date=date.today())
     except Exception as e: 
         traceback.print_exc()
 
