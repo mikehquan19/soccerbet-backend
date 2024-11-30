@@ -23,6 +23,11 @@ class MoneylineBetInfoSerializer(serializers.ModelSerializer):
         model = MoneylineBetInfo
         fields = '__all__'
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["match"] = instance.match.match_id
+        return representation
+
 
 # serializer of the handicap bet info 
 class HandicapBetInfoSerizalizer(serializers.ModelSerializer): 
@@ -30,9 +35,19 @@ class HandicapBetInfoSerizalizer(serializers.ModelSerializer):
         model = HandicapBetInfo
         fields = '__all__'
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["match"] = instance.match.match_id
+        return representation
+
 
 # serializer of the total goals bet info 
 class TotalGoalsBetInfoSerializer(serializers.ModelSerializer): 
     class Meta: 
         model = TotalGoalsBetInfo
         fields = '__all__'
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["match"] = instance.match.match_id
+        return representation

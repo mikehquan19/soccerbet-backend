@@ -48,7 +48,7 @@ class Match(models.Model):
         "La Liga": "LAL", 
         "Bundesliga": "BUN",
     })
-    match_id = models.AutoField(primary_key=True, editable=False) # id imported from API 
+    match_id = models.IntegerField(unique=True) # match_id imported from API to do things
     date = models.DateTimeField("The time the match begins")
 
     home_team = models.CharField(max_length=250)
@@ -66,6 +66,9 @@ class Match(models.Model):
     halftime_score = models.CharField(max_length=10, null=True, blank=True) # "3 - 0"
     fulltime_score = models.CharField(max_length=10, null=True, blank=True) # "3 - 3"
     penalty = models.CharField(max_length=10, null=True, blank=True) # "2 - 4"
+
+    class Meta: 
+        ordering = ["date"]
 
     # example: Real Madrid vs Barcelona
     def __str__(self) -> str:

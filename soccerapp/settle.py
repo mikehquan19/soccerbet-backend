@@ -1,10 +1,12 @@
+"""
+LOGIC TO SETTLE THE BETs
+TODO: WRITE TESTS ON THESE FUNCTIONS  
+"""
+
 from django.db.models import QuerySet
 from .models import (
-    User, Match,  HandicapBetInfo,
-    UserMoneylineBet, UserHandicapBet, UserTotalGoalsBet
+    User, Match,  HandicapBetInfo, UserMoneylineBet, UserHandicapBet, UserTotalGoalsBet
 )
-# LOGIC TO SETTLE THE BETs
-# TODO: WRITE TESTS ON THESE FUNCTIONS  
 
 
 # get the result of the match 
