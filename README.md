@@ -16,3 +16,71 @@ The API is now functional but the following features are still in progress:
 ## Tech Stack 
 - [Django](https://www.djangoproject.com/) ([DRF](https://www.django-rest-framework.org/)) are used to build the API 
 - Data was fetched from [API-Football](https://www.api-football.com/)
+
+## Sample data for API
+```
+SAMPLE DATA FOR MONEYLINE BET 
+{
+    "bet_info": {
+        "id": 169,
+        "time_type": "full_time",
+        "bet_team": "Atletico Madrid",
+        "odd": "-278.00",
+        "status": "Unsettled",
+        "settled_date": null,
+        "match": 1208575
+    },
+    "bet_amount": 100,
+    "user": 1
+}
+
+
+SAMPLE DATA FOR HANDICAP BET 
+[  
+    {
+        "bet_info": {
+            "id": 000,
+            "time_type": "full_time",
+            "bet_team": "Crystal Palace",
+            "handicap_cover": "-1.00",
+            "odd": "-175.00",
+            "status": "Unsettled",
+            "settled_date": null,
+            "match": 1234567
+        },
+        "bet_amount": "100.00",
+        "user": 1
+    }, 
+    {
+        "bet_info": {
+            "id": 001,
+            "time_type": "full_time",
+            "bet_team": "Crystal Palace",
+            "handicap_cover": "-1.00",
+            "odd": "-175.00",
+            "status": "Unsettled",
+            "settled_date": null,
+            "match": 1234567
+        },
+        "bet_amount": "100.00",
+        "user": 1
+    }
+]
+
+
+SAMPLE DATA FOR TOTAL GOALS BET 
+{
+    "bet_info": {
+        "id": 002,
+        "time_type": "full_time",
+        "under_or_over": "Under",
+        "target_num_goals": 4,
+        "odd": "-500.00",
+        "status": "Unsettled",
+        "settled_date": null,
+        "match": 1234567
+    }, 
+    "bet_amount": 100, 
+    "user": 1
+}
+```
