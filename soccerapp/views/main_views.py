@@ -33,6 +33,7 @@ TIME_TYPE_MAP = {"half_time": "half time", "full_time": "full time"}
 class TeamList(APIView): 
     permission_classes = [AllowAny]
 
+    # GET response 
     def get(self, request, league: str, format=None) -> Response: 
         # get the list of teams of the league
         team_list = Team.objects.filter(league=LEAGUES_NAME_MAP[league])
@@ -44,6 +45,7 @@ class TeamList(APIView):
 class MatchList(APIView): 
     permission_classes = [AllowAny]
 
+    # GET method 
     def get(self, request, league: str, status: str) -> Response: 
         status_map = {
             "NF": "Not Finished", 
@@ -53,8 +55,7 @@ class MatchList(APIView):
             match_list = Match.objects.filter(status=status_map[status])
         else: 
             match_list = Match.objects.filter(
-                league=LEAGUES_NAME_MAP[league], 
-                status=status_map[status]
+                league=LEAGUES_NAME_MAP[league], status=status_map[status]
             )
         match_list_serializer = MatchSerializer(match_list, many=True)
         return Response(match_list_serializer.data)
@@ -65,6 +66,7 @@ class MatchList(APIView):
 class Rankings(APIView): 
     permission_classes = [AllowAny]
 
+    # GET method
     def get(self, request, league: str) -> Response: 
         return Response(status=status.HTTP_204_NO_CONTENT)
      
@@ -74,10 +76,10 @@ VIEWS FOR BET INFO
 """
 
 # view to list all of the moneyline bet info of the match with given match id
-@api_view(["GET"])
-@permission_classes([AllowAny])
-def moneyline_info_list(request, match_id) -> Response: 
-    if request.method == "GET": 
+class MoneylineInfoList(APIView): 
+    permission_classes = [AllowAny]
+
+    def get(self, request, match_id: int) -> Response: 
         # list of moneyline bets 
         queried_match = get_object_or_404(Match, match_id=match_id)
         moneyline_info_list = MoneylineBetInfo.objects.filter(match=queried_match)
@@ -91,14 +93,14 @@ def moneyline_info_list(request, match_id) -> Response:
             type_moneyline_data = MoneylineBetInfoSerializer(type_moneyline_list, many=True).data
             response_data[time_type] = type_moneyline_data
         return Response(response_data)
-
+    
 
 # view to list all of the handicap bet info of the match 
 class HandicapInfoList(APIView):
     permission_classes = [AllowAny]
 
     # group the handicap bet info that correspond to each other together
-    # the form [[Home1 -cover, Draw cover, Away1 cover], [Home2 -cover, Draw cover, Away2 cover], ...]
+    # the form [[Home1 -cover, Away1 cover], [Home2 -cover, Away2 cover], ...]
     def group_handicap_info(self, handicap_info_list: list, home_team: str) -> list: 
         # the dictionary mapping the cover to the correponding list of handicap info
         cover_to_handicap_info_list = {}
@@ -151,39 +153,39 @@ class TotalGoalsInfoList(APIView):
     # the form [[Under num_goals1, Over num_goals1], [Under num_goals2, Over num_goals2], ...]
     def group_total_goals_info(self, total_goals_info_list: list) -> list: 
         # dict mapping the target number of goals available to corresponding list of bets 
-        num_to_totalgoals_info_list = {}
+        num_to_goals_info_list = {}
         for total_goals_info in total_goals_info_list: 
             # the target number of goals 
             target_num_goals = total_goals_info["target_num_goals"]
 
             # if this number of goals isn't already in dict, add them
-            if target_num_goals not in num_to_totalgoals_info_list: 
-                num_to_totalgoals_info_list[target_num_goals] = {"under": None, "over": None}
+            if target_num_goals not in num_to_goals_info_list: 
+                num_to_goals_info_list[target_num_goals] = {"under": None, "over": None}
 
             # put the total-goals bet info into the right place of the list 
             if total_goals_info["under_or_over"] == "Under": 
-                num_to_totalgoals_info_list[target_num_goals]["under"] = total_goals_info
+                num_to_goals_info_list[target_num_goals]["under"] = total_goals_info
             else: 
-                num_to_totalgoals_info_list[target_num_goals]["over"] = total_goals_info
+                num_to_goals_info_list[target_num_goals]["over"] = total_goals_info
                 
         # convert dictionary into the list of grouped bet info
-        grouped_totalgoals_info_list = [grouped_info for grouped_info in list(num_to_totalgoals_info_list.values())]
-        return grouped_totalgoals_info_list
+        grouped_goals_info_list = [grouped_info for grouped_info in list(num_to_goals_info_list.values())]
+        return grouped_goals_info_list
     
     # GET method of the request 
     def get(self, request, match_id, format=None) -> Response: 
         # get the list of total goals bet infos
         queried_match = get_object_or_404(Match, match_id=match_id)
-        total_goals_info_list = TotalGoalsBetInfo.objects.filter(match=queried_match)
+        goals_info_list = TotalGoalsBetInfo.objects.filter(match=queried_match)
         
         # the response data
         response_data = {"half_time": None, "full_time": None}
         for time_type in list(response_data.keys()): 
             # list of total goals bet info for this time type
-            type_total_goals_list = total_goals_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
+            type_goals_list = goals_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
             # serialized data of the list 
-            type_total_goals_data = TotalGoalsBetInfoSerializer(type_total_goals_list, many=True).data
-            response_data[time_type] = self.group_total_goals_info(type_total_goals_data)
+            type_goals_data = TotalGoalsBetInfoSerializer(type_goals_list, many=True).data
+            response_data[time_type] = self.group_total_goals_info(type_goals_data)
             # response_data[time_type] = type_total_goals_data # for testing 
         return Response(response_data)
     
