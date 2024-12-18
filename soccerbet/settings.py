@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'soccerapp', 
     'rest_framework',
+    'django_celery_beat',
 ]
 
 MIDDLEWARE = [
@@ -89,7 +90,7 @@ DATABASES = {
         "USER": "postgres",
         "PASSWORD": "",
         "HOST": "localhost",
-        "PORT": "5001",
+        "PORT": "5002",
     }
 }
 
@@ -118,11 +119,16 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'US/Central'
 
 USE_I18N = True
 
 USE_TZ = True
+
+# Celery Configuration 
+CELERY_TIMEZONE = 'US/Central'
+CELERY_TASK_TRACK_STARTED = True
+# CELERY_TASK_TIME_LIMIT = 30 * 60
 
 
 # Static files (CSS, JavaScript, Images)
