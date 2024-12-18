@@ -11,10 +11,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from soccerapp.models import User, UserMoneylineBet, UserHandicapBet, UserTotalGoalsBet
 from soccerapp.serializers import (
-    UserMoneylineBetSerializer, 
-    UserHandicapBetSerializer, 
-    UserTotalGoalsBetSerializer
+    UserSerializer,
+    UserMoneylineBetSerializer, UserHandicapBetSerializer, UserTotalGoalsBetSerializer
 )
+
+# views to show detail of the user 
+class UserDetail(generics.RetrieveAPIView): 
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
 
 
 # views to list all of the moneyline bets and create new bet
@@ -94,7 +98,7 @@ class UserMoneylineBetDetail(APIView):
 
 
 """ 
-generics views for the remaining 2 types of bet for easier life 
+generics views will be used for the remaining 2 types of bet for easier life 
 """ 
 # base views for listing and creating of all types of view
 class UserBetList(generics.ListCreateAPIView): 

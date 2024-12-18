@@ -1,8 +1,15 @@
 from rest_framework import serializers
 from soccerapp.models import (
-    Match, Team, 
+    User, Match, Team, 
     MoneylineBetInfo, HandicapBetInfo, TotalGoalsBetInfo,
 )
+
+# serializer of the user 
+class UserSerializer(serializers.ModelSerializer): 
+    class Meta: 
+        model = User
+        exclude = ["password"]
+
 # serializer of the team
 class TeamSerializer(serializers.ModelSerializer): 
     class Meta: 

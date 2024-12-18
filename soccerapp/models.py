@@ -63,9 +63,9 @@ class Match(models.Model):
         "Finished": "FN"
     }, default="Not Finished")
     updated_date = models.DateField("The date the match's status is updated", null=True, blank=True)
-    halftime_score = models.CharField(max_length=10, null=True, blank=True) # "3 - 0"
-    fulltime_score = models.CharField(max_length=10, null=True, blank=True) # "3 - 3"
-    penalty = models.CharField(max_length=10, null=True, blank=True) # "2 - 4"
+    halftime_score = models.CharField(max_length=10, null=True, blank=True) # "3-0"
+    fulltime_score = models.CharField(max_length=10, null=True, blank=True) # "3-3"
+    penalty = models.CharField(max_length=10, null=True, blank=True) # "2-4"
 
     class Meta: 
         ordering = ["date"]
@@ -93,7 +93,7 @@ class MoneylineBetInfo(models.Model):
 
     # example: Manchester United -200
     def __str__(self) -> str: 
-        return f"{self.bet_team} {self.odd}"
+        return f"{self.match}: {self.bet_team} {self.time_type} {self.odd}"
     
 
 # the moneyline bet of the user 
@@ -101,10 +101,12 @@ class UserMoneylineBet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     bet_info = models.ForeignKey(MoneylineBetInfo, on_delete=models.CASCADE)
     bet_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_date = models.DateField("The date this moneyline bet was created", null=True, blank=True)
+    payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # example mikequan19 bet $50: Manchester United -200
     def __str__(self) -> str: 
-        return f"{self.user.username} bet {self.bet_amount}: {self.bet_info.bet_team} {self.bet_info.odd}"
+        return f"{self.user.username} bet {self.bet_amount}, {self.bet_info}"
     
 
 # the handicap bet info 
@@ -126,7 +128,7 @@ class HandicapBetInfo(models.Model):
 
     # example: Manchester United -1.5 200
     def __str__(self) -> str:
-        return f"{self.bet_team} {self.handicap_cover} {self.odd}"
+        return f"{self.match}: {self.bet_team} {self.time_type} {self.handicap_cover} {self.odd}"
     
 
 # the handicap bet of the user 
@@ -134,10 +136,12 @@ class UserHandicapBet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     bet_info = models.ForeignKey(HandicapBetInfo, on_delete=models.CASCADE)
     bet_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_date = models.DateField("The date this handicap bet was created", null=True, blank=True)
+    payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # example: mikequan19 bet $50: Manchester United -1.5 -200
     def __str__(self) -> str: 
-        return f"{self.user.username} bet {self.bet_amount}: {self.bet_info.bet_team} {self.bet_info.handicap_cover} {self.bet_info.odd}"
+        return f"{self.user.username} bet {self.bet_amount}, {self.bet_info}"
     
 
 # the total goals bet info
@@ -162,7 +166,7 @@ class TotalGoalsBetInfo(models.Model):
 
     # example: Over 5 goals 200
     def __str__(self) -> str:
-        return f"{self.under_or_over} {self.target_num_goals} goals {self.odd}"
+        return f"{self.match}: {self.under_or_over} {self.target_num_goals} goals {self.time_type} {self.odd}"
     
 
 # the total goals bet of the user 
@@ -170,8 +174,10 @@ class UserTotalGoalsBet(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     bet_info = models.ForeignKey(TotalGoalsBetInfo, on_delete=models.CASCADE)
     bet_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    created_date = models.DateField("The date this total goals bet was created", null=True, blank=True)
+    payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
 
     # example: mikequan19 bet $50: Over 5 goals 200
     def __str__(self) -> str: 
-        return f"{self.user.username} bet {self.bet_amount}: {self.bet_info.under_or_over} {self.bet_info.target_num_goals} {self.bet_info.odd}"
+        return f"{self.user.username} bet {self.bet_amount}, {self.bet_info}"
     

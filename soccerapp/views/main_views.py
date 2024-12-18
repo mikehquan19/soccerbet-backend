@@ -4,7 +4,6 @@ ALL OF THE VIEWS IN HERE HAVE PERMISSION ALLOWANY, AND ARE ACCESSIBLE TO ANY END
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -16,7 +15,6 @@ from soccerapp.serializers import (
     MatchSerializer, TeamSerializer,
     MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalGoalsBetInfoSerializer,
 )
-
 
 # mapping the value of request parameter to the value of the database 
 LEAGUES_NAME_MAP = {
