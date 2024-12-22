@@ -1,2 +1,3 @@
 .env
 ./soccerbet/settings.py
+./soccerapp/celerybeat-schedule.db
