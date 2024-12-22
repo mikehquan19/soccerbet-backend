@@ -1,55 +1,62 @@
 from celery import shared_task, group
-from .models import Match, MoneylineBetInfo, HandicapBetInfo, TotalGoalsBetInfo
+from .models import Match, MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo
 from django.db import transaction
-from .uploaders import upload_matches, upload_match_bets, update_match_scores, settle_bets
+from .uploaders import upload_team_rankings, upload_matches, upload_match_bets, update_match_scores, settle_bets, delete_empty_bet_infos
 from datetime import date, timedelta
 import time
 
 LEAGUES = {"Champions League": 2, "Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
 
-@shared_task
-def upload_league_matches_and_bets(league_name: str) -> None: 
-    league_match_list = upload_matches(league_name, LEAGUES[league_name])
-    upload_match_bets(league_match_list)
+
+# CALLED EVERY 12 hours, run by only 1 worker 
+@shared_task(bind=True, max_retries=3, default_retry_delay=3 * 60)
+@transaction.atomic
+def update_teams_rankings(self) -> None: 
+    try: 
+        upload_team_rankings()
+    except Exception as exc: 
+        raise self.retry(exc=exc)
+
+
+# retry 5 times in case of failure, each between 5 minutes 
+@shared_task(bind=True, max_retries=5, default_retry_delay=5 * 60)
+@transaction.atomic
+def upload_league_matches_and_bets(self, league_name: str) -> None: 
+    try: 
+        league_match_list = upload_matches(league_name, LEAGUES[league_name])
+        upload_match_bets(league_match_list)
+    except Exception as exc: 
+        raise self.retry(exc=exc) # re-execute the task if something's wrong
     
 
 # NESTING THE FUNCTION WITHIN 1 TRANSACTION
 # CALLED EVERY WEEK at 0 hours, to be run concurrently with 4 workers 
-# retry 5 times in case of failure, each between 5 minutes 
-@shared_task(bind=True, max_retries=5, default_retry_delay=5 * 60)
-@transaction.atomic
-def upload_matches_and_bets(self) -> None: 
-    try: 
-        start = time.time()
+@shared_task
+def upload_matches_and_bets() -> None: 
         leagues = group(upload_league_matches_and_bets.s(league) for league in list(LEAGUES.keys()))
         leagues.apply_async()
-        end = time.time()
-        print(f"Executed in {end - start} seconds")
+
+
+# retry 2 times in case of failure, each between 2 minutes 
+@shared_task(bind=True, max_retries=2, default_retry_delay=2 * 60)
+@transaction.atomic
+def update_league_scores_and_settle(self, league_name) -> None: 
+    try: 
+        updated_match_list = update_match_scores(league_name, LEAGUES[league_name])
+        delete_empty_bet_infos(updated_match_list)
+        settle_bets(updated_match_list)
+        print(f"{league_name}'s matches and bets settled successfully!")
     except Exception as exc: 
-        raise self.retry(exc) # re-execute the task if something's wrong
-
-
-@shared_task
-def update_league_scores_and_settle(league_name) -> None: 
-    updated_match_list = update_match_scores(league_name, LEAGUES[league_name])
-    settle_bets(updated_match_list)
-    print(f"{league_name}'s matches and bets settled successfully!")
+        raise self.retry(exc=exc)
 
 
 # NESTING THE FUNCTION WITHIN 1 TRANSACTION
 # CALLED EVERY HOUR AT 0 hours, to be run concurrently with 4 workers 
 # retry 2 times in case of failure, each between 2 minutes 
-@shared_task(bind=True, max_retries=2, default_retry_delay=2 * 60)
-@transaction.atomic
-def update_scores_and_settle(self) -> None: 
-    try: 
-        start = time.time()
-        leagues = group(update_league_scores_and_settle.s(league, LEAGUES[league]) for league in list(LEAGUES.keys()))
-        leagues.apply_async()
-        end = time.time()
-        print(f"Executed in {end - start} seconds")
-    except Exception as exc: 
-        raise self.retry(exc)
+@shared_task
+def update_scores_and_settle() -> None: 
+    leagues = group(update_league_scores_and_settle.s(league) for league in list(LEAGUES.keys()))
+    leagues.apply_async()
 
 
 # CALLED EVERY DAY AT 0 hours
@@ -60,43 +67,25 @@ def update_scores_and_settle(self) -> None:
 def delete_past_betinfos_and_matches(self) -> None: 
     try:
         start = time.time()
-        # bet info's past day limit is 14 days (2 weeks)
-        info_filter_date = date.today() - timedelta(days=15)
+        # bet info's past day limit is 7 days (1 week)
+        filter_date = date.today() - timedelta(days=7)
         # delete the list of moneyline bet infos 
-        past_moneyline_bet_info = MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
-        if past_moneyline_bet_info.exists(): 
-            past_moneyline_bet_info.delete()
-            print("Past moneyline bets deleted successfully!")
-        else: 
-            print("No moneyline bets to delete")
+        MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
+        print("Past moneyline bets deleted successfully!")
 
         # delete the list of handicap bet infos 
-        past_handicap_bet_info = HandicapBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
-        if past_handicap_bet_info.exists(): 
-            past_handicap_bet_info.delete()
-            print("Past handicap bets deleted successfully!")
-        else: 
-            print("No handicap bets to delete")
+        HandicapBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
+        print("Past handicap bets deleted successfully!")
 
         # delete the list of total goals bet infos 
-        past_totalgoals_bet_info = TotalGoalsBetInfo.objects.filter(status="Settled", settled_date__lt=info_filter_date)
-        if past_totalgoals_bet_info.exists(): 
-            past_totalgoals_bet_info.delete()
-            print("Past total goals bets deleted successfully!")
-        else: 
-            print("No total goals bet to delete")
+        TotalObjectsBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
+        print("Past total goals bets deleted successfully!")
 
-        # matches's past day limit is 1 month 
-        match_filter_date = date.today() - timedelta(days=30)
         # delete the list of finished matches 
-        past_finished_matches = Match.objects.filter(status="Finished", updated_date__lt=match_filter_date)
-        if past_finished_matches.exists(): 
-            past_finished_matches.delete() 
-            print("Past matches deleted successfully!")
-        else: 
-            print("No matches to delete.")
+        Match.objects.filter(status="Finished", updated_date__lt=filter_date).delete()
+        print("Past matches deleted successfully!")
         # time the task
         end = time.time()
         print(f"Executed in {end - start} seconds.")
     except Exception as exc: 
-        self.retry(exc)
+        self.retry(exc=exc)
