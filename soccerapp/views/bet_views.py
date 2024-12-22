@@ -9,10 +9,10 @@ from django.db import transaction
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from soccerapp.models import User, UserMoneylineBet, UserHandicapBet, UserTotalGoalsBet
+from soccerapp.models import User, UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 from soccerapp.serializers import (
     UserSerializer,
-    UserMoneylineBetSerializer, UserHandicapBetSerializer, UserTotalGoalsBetSerializer
+    UserMoneylineBetSerializer, UserHandicapBetSerializer, UserTotalObjectsBetSerializer
 )
 
 # views to show detail of the user 
@@ -142,12 +142,12 @@ class UserHandicapBetList(UserBetList):
 
 # views to list all of the user total goals bets (inheriting from UserBetList)
 class UserTotalGoalsBetList(UserBetList): 
-    serializer_class = UserTotalGoalsBetSerializer
+    serializer_class = UserTotalObjectsBetSerializer
 
     # the queryset (list of the user's total goals bets)
     def get_queryset(self):
         queried_user = get_object_or_404(User, id=self.kwargs["user_id"])
-        total_goals_bet_list = UserTotalGoalsBet.objects.filter(user=queried_user)
+        total_goals_bet_list = UserTotalObjectsBet.objects.filter(user=queried_user)
         return total_goals_bet_list
     
 
@@ -192,5 +192,5 @@ class UserHandicapBetDetail(UserBetDetail):
 
 # view to handle the detailf of the total goals bet (inheriting from UserBetDetail)
 class UserTotalGoalsBetDetail(UserBetDetail): 
-    queryset = UserTotalGoalsBet.objects.all()
+    queryset = UserTotalObjectsBet.objects.all()
     serializer_class = UserHandicapBetSerializer

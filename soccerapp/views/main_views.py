@@ -3,17 +3,16 @@ ALL OF THE VIEWS IN HERE HAVE PERMISSION ALLOWANY, AND ARE ACCESSIBLE TO ANY END
 """
 
 from django.shortcuts import get_object_or_404
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from soccerapp.models import (
-    Match, Team, 
-    MoneylineBetInfo, HandicapBetInfo, TotalGoalsBetInfo,
+    Match, Team, TeamRanking,
+    MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo,
 )
 from soccerapp.serializers import (
-    MatchSerializer, TeamSerializer,
-    MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalGoalsBetInfoSerializer,
+    MatchSerializer, TeamSerializer, TeamRankingSerializer,
+    MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalObjectsBetInfoSerializer,
 )
 
 # mapping the value of request parameter to the value of the database 
@@ -59,14 +58,15 @@ class MatchList(APIView):
         return Response(match_list_serializer.data)
 
     
-# TODO: complete this views 
 # view to handle the rankings of the league
-class Rankings(APIView): 
+class Standings(APIView): 
     permission_classes = [AllowAny]
 
     # GET method
     def get(self, request, league: str) -> Response: 
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        standings = TeamRanking.objects.filter(league=LEAGUES_NAME_MAP[league])
+        standings_serializer = TeamRankingSerializer(standings, many=True)
+        return Response(standings_serializer.data)
      
     
 """
@@ -77,10 +77,10 @@ VIEWS FOR BET INFO
 class MoneylineInfoList(APIView): 
     permission_classes = [AllowAny]
 
-    def get(self, request, match_id: int) -> Response: 
+    def get(self, request, match_id: int, bet_obj: str, format=None) -> Response: 
         # list of moneyline bets 
         queried_match = get_object_or_404(Match, match_id=match_id)
-        moneyline_info_list = MoneylineBetInfo.objects.filter(match=queried_match)
+        moneyline_info_list = MoneylineBetInfo.objects.filter(match=queried_match, bet_object=bet_obj)
 
         # list of moneyline bet info for half-time and fulltime
         response_data = {"half_time": None, "full_time": None}
@@ -125,17 +125,16 @@ class HandicapInfoList(APIView):
         return grouped_handicap_info_list
     
     # GET method of the request 
-    def get(self, request, match_id, format=None) -> Response: 
+    def get(self, request, match_id: int, bet_obj: str, format=None) -> Response: 
         # the list of handicap bets 
         queried_match = get_object_or_404(Match, match_id=match_id)
-        handicap_info_list = HandicapBetInfo.objects.filter(match=queried_match)
+        handicap_info_list = HandicapBetInfo.objects.filter(match=queried_match, bet_object=bet_obj)
 
         # display the bets dependending on the time-type of each bet 
         response_data = {"half_time": None, "full_time": None}
         for time_type in list(response_data.keys()): 
-            # list of handicap bet info for this time type
+            # list and serialize handicap bet info for this time type
             type_handicap_list = handicap_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
-            # serialize and then regroup the records of the data 
             type_handicap_data = HandicapBetInfoSerizalizer(type_handicap_list, many=True).data
             response_data[time_type] = self.group_handicap_info(type_handicap_data, queried_match.home_team)
             # response_data[time_type] = type_handicap_data # for testing 
@@ -144,37 +143,37 @@ class HandicapInfoList(APIView):
 
 
 # views to list all of the total goals bet info of the match 
-class TotalGoalsInfoList(APIView):
+class TotalObjectsInfoList(APIView):
     permission_classes = [AllowAny]
 
     # group the the total goals bet infos that have the same number of target goals 
     # the form [[Under num_goals1, Over num_goals1], [Under num_goals2, Over num_goals2], ...]
-    def group_total_goals_info(self, total_goals_info_list: list) -> list: 
+    def group_total_objects_info(self, total_objects_info_list: list) -> list: 
         # dict mapping the target number of goals available to corresponding list of bets 
-        num_to_goals_info_list = {}
-        for total_goals_info in total_goals_info_list: 
+        num_to_objects_info_list = {}
+        for total_objects_info in total_objects_info_list: 
             # the target number of goals 
-            target_num_goals = total_goals_info["target_num_goals"]
+            target_num_objects = total_objects_info["target_num_objects"]
 
             # if this number of goals isn't already in dict, add them
-            if target_num_goals not in num_to_goals_info_list: 
-                num_to_goals_info_list[target_num_goals] = {"under": None, "over": None}
+            if target_num_objects not in num_to_objects_info_list: 
+                num_to_objects_info_list[target_num_objects] = {"under": None, "over": None}
 
             # put the total-goals bet info into the right place of the list 
-            if total_goals_info["under_or_over"] == "Under": 
-                num_to_goals_info_list[target_num_goals]["under"] = total_goals_info
+            if total_objects_info["under_or_over"] == "Under": 
+                num_to_objects_info_list[target_num_objects]["under"] = total_objects_info
             else: 
-                num_to_goals_info_list[target_num_goals]["over"] = total_goals_info
+                num_to_objects_info_list[target_num_objects]["over"] = total_objects_info
                 
         # convert dictionary into the list of grouped bet info
-        grouped_goals_info_list = [grouped_info for grouped_info in list(num_to_goals_info_list.values())]
-        return grouped_goals_info_list
+        grouped_objs_info_list = [grouped_info for grouped_info in list(num_to_objects_info_list.values())]
+        return grouped_objs_info_list
     
     # GET method of the request 
-    def get(self, request, match_id, format=None) -> Response: 
+    def get(self, request, match_id: int, bet_obj: str, format=None) -> Response: 
         # get the list of total goals bet infos
         queried_match = get_object_or_404(Match, match_id=match_id)
-        goals_info_list = TotalGoalsBetInfo.objects.filter(match=queried_match)
+        goals_info_list = TotalObjectsBetInfo.objects.filter(match=queried_match, bet_object=bet_obj)
         
         # the response data
         response_data = {"half_time": None, "full_time": None}
@@ -182,8 +181,8 @@ class TotalGoalsInfoList(APIView):
             # list of total goals bet info for this time type
             type_goals_list = goals_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
             # serialized data of the list 
-            type_goals_data = TotalGoalsBetInfoSerializer(type_goals_list, many=True).data
-            response_data[time_type] = self.group_total_goals_info(type_goals_data)
+            type_goals_data = TotalObjectsBetInfoSerializer(type_goals_list, many=True).data
+            response_data[time_type] = self.group_total_objects_info(type_goals_data)
             # response_data[time_type] = type_total_goals_data # for testing 
         return Response(response_data)
     
