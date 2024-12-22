@@ -5,11 +5,11 @@ SERIALIZERS FOR THE USER BETS AND LIST OF THEM
 from rest_framework import serializers
 from django.db import transaction
 from soccerapp.models import (
-    MoneylineBetInfo, HandicapBetInfo, TotalGoalsBetInfo,
-    UserMoneylineBet, UserHandicapBet, UserTotalGoalsBet,
+    MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo,
+    UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet,
 )
-from . import MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalGoalsBetInfoSerializer
-from serializer_utils import * 
+from . import MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalObjectsBetInfoSerializer
+from .serializer_utils import * 
 
 
 # the list serializer to handle the list of UserMoneylineBet objects
@@ -60,7 +60,7 @@ class UserMoneylineBetSerializer(serializers.ModelSerializer):
 class HandicapBetListSerializer(serializers.ListSerializer): 
     # create the list of UserHandicapBet objects 
     def create(self, validated_data): 
-        # handicap_bet_list: the list of handicap bets to be saved to database
+        # handicap_data_list: the list of handicap bets to be saved to database
         total_bet_amount, handicap_data_list = validate_create_data(HandicapBetInfo, UserHandicapBet, validated_data)
 
         # save this handicap bet to the user 
@@ -98,32 +98,32 @@ class UserHandicapBetSerializer(serializers.ModelSerializer):
 
 # serializer to handle the list of UserTotalGoalsBet objects 
 # used by UserTotalGoalsSerializer 
-class TotalGoalsBetListSerializer(serializers.ListSerializer): 
+class TotalObjectsBetListSerializer(serializers.ListSerializer): 
     # handle the creation of multiple UserTotalGoalsBet 
     def create(self, validated_data): 
         # validate the data to be added 
-        total_bet_amount, goals_data_list = validate_create_data(TotalGoalsBetInfo, UserTotalGoalsBet, validated_data)
+        total_bet_amount, objects_data_list = validate_create_data(TotalObjectsBetInfo, UserTotalObjectsBet, validated_data)
         
         # save this handicap bet to the user
         # maintain the integrity of the data 
         with transaction.atomic(): 
-            goals_bet_list = UserTotalGoalsBet.objects.bulk_create(goals_data_list)
+            objects_bet_list = UserTotalObjectsBet.objects.bulk_create(objects_data_list)
         # return the new list and total amount of bet 
-        return goals_bet_list, total_bet_amount
+        return objects_bet_list, total_bet_amount
 
 
 # serializer of the total goals bet
-class UserTotalGoalsBetSerializer(serializers.ModelSerializer): 
+class UserTotalObjectsBetSerializer(serializers.ModelSerializer): 
     class Meta: 
-        list_serializer_class = TotalGoalsBetInfoSerializer
-        model = UserTotalGoalsBet
-        fields = '__all__'
-    bet_info = TotalGoalsBetInfoSerializer()
+        list_serializer_class = TotalObjectsBetListSerializer
+        model = UserTotalObjectsBet
+        fields = '__all__' 
+    bet_info = TotalObjectsBetInfoSerializer()
     
     # update the UserTotalGoals object 
     def update(self, instance, validated_data): 
         # validate the data to be updated 
-        validate_update_data(TotalGoalsBetInfo, instance, validated_data)
+        validate_update_data(TotalObjectsBetInfo, instance, validated_data)
         
         # update the bet amount (if any) of the bet 
         instance.bet_amount = validated_data["bet_amount"]

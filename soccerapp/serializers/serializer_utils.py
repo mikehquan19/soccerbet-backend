@@ -53,6 +53,7 @@ def validate_create_data(bet_info_class: Type[Model], user_bet_class: Type[Model
     
 
 # validate the data to be updated (for update() method)
+# return none 
 def validate_update_data(bet_info_class: Type[Model], instance, update_data): 
     current_user = update_data["user"]
     current_info_id = bet_info_class.objects.get(**update_data["bet_info"]).id

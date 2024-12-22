@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from soccerapp.models import (
-    User, Match, Team, 
-    MoneylineBetInfo, HandicapBetInfo, TotalGoalsBetInfo,
+    User, Match, Team, TeamRanking,
+    MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo,
 )
 
 # serializer of the user 
@@ -10,11 +10,26 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         exclude = ["password"]
 
+
 # serializer of the team
 class TeamSerializer(serializers.ModelSerializer): 
     class Meta: 
         model = Team
         fields = '__all__'
+
+
+# serializer of the team rank
+class TeamRankingSerializer(serializers.ModelSerializer): 
+    class Meta: 
+        model = TeamRanking
+        fields = '__all__'
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation.pop("league")
+        representation["team"] = instance.team.name
+        representation["logo"] = instance.team.logo
+        return representation
 
 
 # serializer of the match 
@@ -49,9 +64,9 @@ class HandicapBetInfoSerizalizer(serializers.ModelSerializer):
 
 
 # serializer of the total goals bet info 
-class TotalGoalsBetInfoSerializer(serializers.ModelSerializer): 
+class TotalObjectsBetInfoSerializer(serializers.ModelSerializer): 
     class Meta: 
-        model = TotalGoalsBetInfo
+        model = TotalObjectsBetInfo
         fields = '__all__'
 
     def to_representation(self, instance):

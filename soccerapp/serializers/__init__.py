@@ -1,4 +1,2 @@
 from .other_serializers import * 
-from .moneyline_serializers import UserMoneylineBetSerializer
-from .handicap_serializers import UserHandicapBetSerializer
-from .totalgoals_serializers import UserTotalGoalsBetSerializer
+from .bet_serializers import UserMoneylineBetSerializer, UserHandicapBetSerializer, UserTotalObjectsBetSerializer
