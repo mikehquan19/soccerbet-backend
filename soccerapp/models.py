@@ -15,7 +15,7 @@ class User(models.Model):
     
 
 # Team (the number of teams is fixed)
-# used for part of the page where people can comment on the team 
+# used for part of the page where people can comment on the team, and rankings 
 # many other objects include: Comment, Reply, etc.
 class Team(models.Model): 
     league = models.CharField(max_length=100, choices={
@@ -38,6 +38,30 @@ class Team(models.Model):
     # example: Manchester United 
     def __str__(self) -> str:
         return self.name
+    
+
+# rakng of the team in the league 
+class TeamRanking(models.Model): 
+    league = models.CharField(max_length=100, choices={
+        "Champions League": "UCL", 
+        "Premiere League": "EPL",
+        "La Liga": "LAL", 
+        "Bundesliga": "BUN",
+    })
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+    rank = models.IntegerField()
+    points = models.IntegerField()
+    num_watches = models.IntegerField()
+    num_wins = models.IntegerField()
+    num_loses = models.IntegerField()
+    num_draws = models.IntegerField()
+
+    class Meta:
+        ordering = ["league", "rank"]
+
+    # Example Champions League: Real Madrid 18 (LOL)
+    def __str__(self) -> str: 
+        return f"{self.league}: {self.team} {self.rank}"
 
 
 # the soccer Match
@@ -67,6 +91,12 @@ class Match(models.Model):
     fulltime_score = models.CharField(max_length=10, null=True, blank=True) # "3-3"
     penalty = models.CharField(max_length=10, null=True, blank=True) # "2-4"
 
+    # other statistics such as posession, 
+    possesion = models.CharField(max_length=10, null=True, blank=True) # "57-43"
+    total_shots = models.CharField(max_length=10, null=True, blank=True) # "10-7"
+    corners = models.CharField(max_length=10, null=True, blank=True) # "11-13"
+    cards = models.CharField(max_length=10, null=True, blank=True) # "3-2"
+
     class Meta: 
         ordering = ["date"]
 
@@ -82,6 +112,11 @@ class MoneylineBetInfo(models.Model):
         "full time": "full_time", 
         "half time": "half_time",
     })
+    bet_object = models.CharField(max_length=50, choices={
+        "Goals": "Goals", 
+        "Corners": "Corners", 
+        "Cards": "Cards", 
+    }, default="Goals")
     bet_team = models.CharField(max_length=150)
     odd = models.DecimalField(max_digits=8, decimal_places=2, default=0)
     # the settled bet will be deleted from the database in 7 days 
@@ -93,7 +128,7 @@ class MoneylineBetInfo(models.Model):
 
     # example: Manchester United -200
     def __str__(self) -> str: 
-        return f"{self.match}: {self.bet_team} {self.time_type} {self.odd}"
+        return f"{self.match}: {self.bet_team} {self.time_type} {self.bet_object} {self.odd}"
     
 
 # the moneyline bet of the user 
@@ -115,6 +150,11 @@ class HandicapBetInfo(models.Model):
     time_type = models.CharField(max_length=50, choices={
         "full time": "full_time", 
         "half time": "half_time"})
+    bet_object = models.CharField(max_length=50, choices={
+        "Goals": "Goals", 
+        "Corners": "Corners", 
+        "Cards": "Cards", 
+    }, default="Goals")
     bet_team = models.CharField(max_length=150)
     # the handicap cover of the bet 
     handicap_cover = models.DecimalField(max_digits=5, decimal_places=2)
@@ -128,7 +168,7 @@ class HandicapBetInfo(models.Model):
 
     # example: Manchester United -1.5 200
     def __str__(self) -> str:
-        return f"{self.match}: {self.bet_team} {self.time_type} {self.handicap_cover} {self.odd}"
+        return f"{self.match}: {self.bet_team} {self.time_type} {self.bet_object} {self.handicap_cover} {self.odd}"
     
 
 # the handicap bet of the user 
@@ -145,17 +185,22 @@ class UserHandicapBet(models.Model):
     
 
 # the total goals bet info
-class TotalGoalsBetInfo(models.Model): 
+class TotalObjectsBetInfo(models.Model): 
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
     time_type = models.CharField(max_length=50, choices={
         "full time": "full_time", 
         "half time": "half_time"
     })
+    bet_object = models.CharField(max_length=50, choices={
+        "Goals": "Goals", 
+        "Corners": "Corners", 
+        "Cards": "Cards", 
+    }, default="Goals")
     under_or_over = models.CharField(max_length=10, choices={
         "Under": "Under", 
         "Over": "Over", 
     })
-    target_num_goals = models.IntegerField(default=0)
+    target_num_objects = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     odd = models.DecimalField(max_digits=8, decimal_places=2)
     # the settled bet will be deleted from the database in 7 days 
     status = models.CharField(max_length=50, choices={
@@ -166,13 +211,13 @@ class TotalGoalsBetInfo(models.Model):
 
     # example: Over 5 goals 200
     def __str__(self) -> str:
-        return f"{self.match}: {self.under_or_over} {self.target_num_goals} goals {self.time_type} {self.odd}"
+        return f"{self.match}: {self.under_or_over} {self.target_num_objects} {self.bet_object} {self.time_type}  {self.odd}"
     
 
 # the total goals bet of the user 
-class UserTotalGoalsBet(models.Model): 
+class UserTotalObjectsBet(models.Model): 
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    bet_info = models.ForeignKey(TotalGoalsBetInfo, on_delete=models.CASCADE)
+    bet_info = models.ForeignKey(TotalObjectsBetInfo, on_delete=models.CASCADE)
     bet_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_date = models.DateField("The date this total goals bet was created", null=True, blank=True)
     payout = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
