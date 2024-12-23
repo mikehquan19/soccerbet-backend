@@ -37,7 +37,10 @@ class UserMoneylineBetList(APIView):
     
     # the POST method 
     def post(self, request, user_id, format=None) -> Response: 
-        new_bet_serializer = UserMoneylineBetSerializer(data=request.data, many=True)
+        request_data = request.data
+        for item_data in request_data: item_data["user"] = user_id
+
+        new_bet_serializer = UserMoneylineBetSerializer(data=request_data, many=True)
         if new_bet_serializer.is_valid(): 
             with transaction.atomic(): # maintain the integrity of the data
                 # save the new bet to the database 
@@ -117,7 +120,10 @@ class UserBetList(generics.ListCreateAPIView):
 
     # override create() method (which will be used by every other bet list views)
     def create(self, request, **kwargs) -> Response: 
-        new_bet_list_serializer = self.get_serializer(data=request.data, many=True)
+        request_data = request.data
+        for item_data in request_data: item_data["user"] = self.kwargs["user_id"]
+
+        new_bet_list_serializer = self.get_serializer(data=request_data, many=True)
         # automatically raise the exception
         new_bet_list_serializer.is_valid(raise_exception=True) 
         self.perform_create(new_bet_list_serializer) # create the bet
