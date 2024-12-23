@@ -61,7 +61,7 @@ class HandicapBetListSerializer(serializers.ListSerializer):
     # create the list of UserHandicapBet objects 
     def create(self, validated_data): 
         # handicap_data_list: the list of handicap bets to be saved to database
-        total_bet_amount, handicap_data_list = validate_create_data(HandicapBetInfo, UserHandicapBet, validated_data)
+        handicap_data_list, total_bet_amount = validate_create_data(HandicapBetInfo, UserHandicapBet, validated_data)
 
         # save this handicap bet to the user 
         # maintain the integrity of the data 
@@ -102,7 +102,7 @@ class TotalObjectsBetListSerializer(serializers.ListSerializer):
     # handle the creation of multiple UserTotalGoalsBet 
     def create(self, validated_data): 
         # validate the data to be added 
-        total_bet_amount, objects_data_list = validate_create_data(TotalObjectsBetInfo, UserTotalObjectsBet, validated_data)
+        objects_data_list, total_bet_amount = validate_create_data(TotalObjectsBetInfo, UserTotalObjectsBet, validated_data)
         
         # save this handicap bet to the user
         # maintain the integrity of the data 

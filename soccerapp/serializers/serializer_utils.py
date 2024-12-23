@@ -2,7 +2,7 @@
 
 from rest_framework.serializers import ValidationError as DRFValidationError
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, date
 from typing import Type
 from django.db.models import Model
 
@@ -40,7 +40,7 @@ def validate_create_data(bet_info_class: Type[Model], user_bet_class: Type[Model
             
         # increment the total and add the instance to the list 
         total_bet_amount += item_data["bet_amount"]
-        saved_bet_list.append(user_bet_class(**item_data, bet_info=bet_info_obj))
+        saved_bet_list.append(user_bet_class(**item_data, created_date=date.today(), bet_info=bet_info_obj))
         
     # validate the sufficiency of the user's balance
     if this_user.balance < total_bet_amount: 
@@ -49,7 +49,7 @@ def validate_create_data(bet_info_class: Type[Model], user_bet_class: Type[Model
             "detail": f"User balance: ${this_user.balance}, total amount: ${total_bet_amount}"
         })
     # return 
-    return total_bet_amount, saved_bet_list
+    return saved_bet_list, total_bet_amount
     
 
 # validate the data to be updated (for update() method)
