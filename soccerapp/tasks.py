@@ -1,5 +1,5 @@
 from celery import shared_task, group
-from .models import Match, MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo
+from .models import Match
 from django.db import transaction
 from .uploaders import upload_team_rankings, upload_matches, upload_match_bets, update_match_scores, settle_bets, delete_empty_bet_infos
 from datetime import date, timedelta
@@ -30,7 +30,7 @@ def upload_league_matches_and_bets(self, league_name: str) -> None:
     
 
 # NESTING THE FUNCTION WITHIN 1 TRANSACTION
-# CALLED EVERY WEEK at 0 hours, to be run concurrently with 4 workers 
+# CALLED MONDAY AND FRIDAY at 0 hours, to be run concurrently with 4 workers 
 @shared_task
 def upload_matches_and_bets() -> None: 
         leagues = group(upload_league_matches_and_bets.s(league) for league in list(LEAGUES.keys()))
@@ -50,7 +50,6 @@ def update_league_scores_and_settle(self, league_name) -> None:
         raise self.retry(exc=exc)
 
 
-# NESTING THE FUNCTION WITHIN 1 TRANSACTION
 # CALLED EVERY HOUR AT 0 hours, to be run concurrently with 4 workers 
 # retry 2 times in case of failure, each between 2 minutes 
 @shared_task
@@ -69,21 +68,9 @@ def delete_past_betinfos_and_matches(self) -> None:
         start = time.time()
         # bet info's past day limit is 7 days (1 week)
         filter_date = date.today() - timedelta(days=7)
-        # delete the list of moneyline bet infos 
-        MoneylineBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
-        print("Past moneyline bets deleted successfully!")
-
-        # delete the list of handicap bet infos 
-        HandicapBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
-        print("Past handicap bets deleted successfully!")
-
-        # delete the list of total goals bet infos 
-        TotalObjectsBetInfo.objects.filter(status="Settled", settled_date__lt=filter_date).delete()
-        print("Past total goals bets deleted successfully!")
-
         # delete the list of finished matches 
         Match.objects.filter(status="Finished", updated_date__lt=filter_date).delete()
-        print("Past matches deleted successfully!")
+        print("Past matches and associated bet_infos deleted successfully!")
         # time the task
         end = time.time()
         print(f"Executed in {end - start} seconds.")

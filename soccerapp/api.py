@@ -1,9 +1,13 @@
 import requests
 import json
-import os
+import environ
+
+env = environ.Env()
+# reading .env file 
+environ.Env.read_env()
 
 # the API key
-API_KEY = "" # API-KEY OBTAINED FROM SUBSCRIBING TO API-FOOTBALL
+API_KEY = env("API_KEY") # API-KEY OBTAINED FROM SUBSCRIBING TO API-FOOTBALL
 base_url = "https://v3.football.api-sports.io"
 payload = {}
 headers = {

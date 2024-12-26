@@ -76,10 +76,15 @@ def get_date_str(arg_date: date) -> str:
 # upload data about the matches and bets for each match to the database 
 def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]: 
     # process the first date and last date of the week 
-    # from_date_str = get_date_str(date.today())
-    # to_date_str = get_date_str(date.today() + timedelta(days=7))
+    from_date_str = get_date_str(date.today())
+    if date.today().weekday() == 0: 
+        to_date_str = get_date_str(date.today() + timedelta(days=3))
+    elif date.today().weekday() == 4: 
+        to_date_str = get_date_str(date.today() + timedelta(days=2))
+    else: 
+        return Match.objects.none()
 
-    from_date_str, to_date_str = "2024-12-20", "2024-12-21" # used for testing 
+    # from_date_str, to_date_str = "2024-12-22", "2024-12-22" # used for testing 
     api_matches_data = get_not_started_matches(league_id, from_date_str, to_date_str)
     not_started_matches= [] # list of Match objects 
 
@@ -143,9 +148,9 @@ def upload_match_bets(arg_matches: QuerySet[Match]) -> None:
 # update the score of the matches 
 def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
     # process the given date 
-    # given_date_str = get_date_str(date.today())
+    given_date_str = get_date_str(date.today())
 
-    given_date_str = "2024-12-21" # used for testing 
+    # given_date_str = "2024-12-22" # used for testing 
     match_scores_data = get_match_score(league_id, given_date_str)
     queried_matches = [] # list of Match objects 
 
@@ -183,9 +188,9 @@ def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]:
 # delete the bet infos from the given queryset of matches that are without user bets
 def delete_empty_bet_infos(arg_matches: QuerySet[Match]) -> None: 
     for match in arg_matches: 
-        MoneylineBetInfo.objects.annotate(user_bet_count=Count('usermoneylinebet')).filter(match=match, user_bet_count=0).delete()
-        HandicapBetInfo.objects.annotate(user_bet_count=Count('userhandicapbet')).filter(match=match, user_bet_count=0).delete()
-        TotalObjectsBetInfo.objects.annotate(user_bet_count=Count('usertotalobjectsbet')).filter(match=match, user_bet_count=0).delete()
+        MoneylineBetInfo.objects.annotate(moneyline_bet_count=Count('usermoneylinebet')).filter(match=match, moneyline_bet_count=0).delete()
+        HandicapBetInfo.objects.annotate(handicap_bet_count=Count('userhandicapbet')).filter(match=match, handicap_bet_count=0).delete()
+        TotalObjectsBetInfo.objects.annotate(total_bet_count=Count('usertotalobjectsbet')).filter(match=match, total_bet_count=0).delete()
         print(f"Empty bet infos of match {match} deleted successfully!")
 
 
@@ -215,7 +220,7 @@ def settle_bets(arg_matches: QuerySet[Match]) -> None:
         print(f"{total} total objects bets of match {match} settled!")
 
 
-# test function to generate the testing bets to the user 
+# function to generate the testing bets to the user to test settle functions
 @transaction.atomic
 def upload_user_bets(limit: int): 
     user_ix = 1

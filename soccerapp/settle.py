@@ -51,7 +51,6 @@ def settle_moneyline_bet_list(moneyline_bet_list: QuerySet[UserMoneylineBet]) ->
     updated_user_list, updated_bet_list, user_ix = [], [], 0
     for i, moneyline_bet in enumerate(moneyline_bet_list):  
         updated_bet_list.append(moneyline_bet) # add the bet to the list of updated bets 
-        
         if i == 0: # add the first user to the list 
             updated_user_list.append(moneyline_bet.user)
         elif i != 0 and moneyline_bet.user != updated_user_list[user_ix]: 
@@ -62,14 +61,14 @@ def settle_moneyline_bet_list(moneyline_bet_list: QuerySet[UserMoneylineBet]) ->
         bet_info = moneyline_bet.bet_info # the info of the this moneyline bet 
         bet_amount = moneyline_bet.bet_amount # the amount the user bet on this info
 
-        # determine the winning team of the match 
-        this_bet_match = bet_info.match
+        # compute the total payout to the user based on the result 
         try: 
+            # determine the winning team of the match 
+            this_bet_match = bet_info.match
             win_team, _ = get_results(this_bet_match, bet_info)
         except ValueError: 
             total_payout = bet_amount
         else: 
-            # compute the total payout to the user based on the result 
             if win_team == bet_info.bet_team: 
                 if bet_info.odd > 0: 
                     total_payout = round(bet_amount + (bet_amount * bet_info.odd) / 100, 2)
@@ -78,7 +77,6 @@ def settle_moneyline_bet_list(moneyline_bet_list: QuerySet[UserMoneylineBet]) ->
                     total_payout = round(bet_amount + (bet_amount * 100) / abs(bet_info.odd), 2)
             else: # otherwise, they lose and they get nothing back 
                 total_payout = 0
-
         # update the payout of the bets and balance of the user 
         updated_bet_list[i].payout = total_payout
         updated_user_list[user_ix].balance += total_payout
@@ -93,7 +91,6 @@ def settle_handicap_bet_list(handicap_bet_list: QuerySet[UserHandicapBet]) -> in
     updated_user_list, updated_bet_list, user_ix = [], [], 0 # list of user and bet to be updated 
     for i, handicap_bet in enumerate(handicap_bet_list): 
         updated_bet_list.append(handicap_bet)
-
         if i == 0: # add the first user to the list 
             updated_user_list.append(handicap_bet.user)
         elif i != 0 and handicap_bet.user != updated_user_list[user_ix]: 
@@ -104,15 +101,14 @@ def settle_handicap_bet_list(handicap_bet_list: QuerySet[UserHandicapBet]) -> in
         bet_info = handicap_bet.bet_info
         bet_amount = handicap_bet.bet_amount
 
-        # determine the winning team and the score handicap of the match 
-        this_bet_match = bet_info.match
+        # compute the total payout to the user based on the result 
         try: 
+            # determine the winning team and the score handicap of the match 
+            this_bet_match = bet_info.match
             win_team, _ = get_results(this_bet_match, bet_info)
         except ValueError: 
             total_payout = bet_amount
         else: 
-            # determine whether the user wins the bet based on the result and handicap
-            # compute the total payout to the user based on the result 
             if win_team == bet_info.bet_team: # if the bet team is the win team, user wins 
                 if bet_info.odd > 0: 
                     total_payout = round(bet_amount + (bet_amount * bet_info.odd) / 100, 2)
@@ -121,7 +117,6 @@ def settle_handicap_bet_list(handicap_bet_list: QuerySet[UserHandicapBet]) -> in
                     total_payout = round(bet_amount + (bet_amount * 100) / abs(bet_info.odd), 2)
             else: # otherwise
                 total_payout = bet_amount if win_team == "Draw" else 0
-
         # update the bet's payout and the user's balance 
         updated_bet_list[i].payout = total_payout
         updated_user_list[user_ix].balance += total_payout
@@ -136,7 +131,6 @@ def settle_total_objects_bet_list(total_objects_bet_list: QuerySet[UserTotalObje
     updated_user_list, updated_bet_list, user_ix = [], [], 0
     for i, total_objects_bet in enumerate(total_objects_bet_list): 
         updated_bet_list.append(total_objects_bet)
-
         if i == 0: # add the first user to the list 
             updated_user_list.append(total_objects_bet.user)
         elif i != 0 and total_objects_bet.user != updated_user_list[user_ix]: 
@@ -146,10 +140,10 @@ def settle_total_objects_bet_list(total_objects_bet_list: QuerySet[UserTotalObje
 
         bet_info = total_objects_bet.bet_info
         bet_amount = total_objects_bet.bet_amount
-
-        # determin the total goals of the match 
-        this_bet_match = bet_info.match 
+ 
         try: 
+            # determin the total goals of the match 
+            this_bet_match = bet_info.match
             _, total_bet_objects = get_results(this_bet_match, bet_info)
         except ValueError: 
             total_payout = bet_amount
@@ -176,7 +170,6 @@ def settle_total_objects_bet_list(total_objects_bet_list: QuerySet[UserTotalObje
                         total_payout = round(bet_amount + (bet_amount * 100) / abs(bet_info.odd), 2)
                 else: # the user loses the bet 
                     total_payout = 0
-
         # update the user's balance and bet's payout 
         updated_bet_list[i].payout = total_payout
         updated_user_list[user_ix].balance += total_payout
