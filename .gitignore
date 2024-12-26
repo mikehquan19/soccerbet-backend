@@ -1,2 +1,2 @@
-./soccerbet/settings.py
-.env
+soccerbet/settings.py
+*.env
