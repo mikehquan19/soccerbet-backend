@@ -3,20 +3,21 @@ from django.db.models import QuerySet, Count
 from django.utils import timezone
 from .api import (
     get_teams, get_league_standings, get_not_started_matches, 
-    get_moneyline_bets, get_total_bets, get_match_score
+    get_winner_bets, get_total_bets, get_match_score
 )
-from .settle import settle_moneyline_bet_list, settle_handicap_bet_list, settle_total_objects_bet_list
+from .settle import settle_bet_list
 from .models import (
-    Team, TeamRanking, User, Match,
+    Team, TeamRanking, Match,
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo, 
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 ) 
 from datetime import date, timedelta
 import traceback
 
-
-# function to upload data about the teams (for the comment and section part of the website)
-# CALLED EVERY YEAR MANUALLY
+"""
+function to upload data about the teams (for the comment and section part of the website)
+CALLED EVERY YEAR MANUALLY
+"""
 @transaction.atomic
 def upload_teams() -> None: 
     leagues = {"Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
@@ -50,9 +51,8 @@ def upload_team_rankings() -> None:
         this_league_standings = []
         for rank in api_ranks_data: 
             this_league_standings.append(TeamRanking(
-                league=league_name, team=Team.objects.get(name=rank["team"]), 
-                rank=rank["rank"], points=rank["points"], num_watches=rank["num_matches"], 
-                num_wins=rank["num_wins"], num_loses=rank["num_loses"], num_draws=rank["num_draws"],
+                league=league_name, team=Team.objects.get(name=rank["team"]), rank=rank["rank"], 
+                points=rank["points"], num_watches=rank["num_matches"], num_wins=rank["num_wins"], num_loses=rank["num_loses"], num_draws=rank["num_draws"],
             ))
         TeamRanking.objects.bulk_create(this_league_standings)
         print(f"Standings of {league_name} uploaded or updated successfully!")
@@ -60,7 +60,7 @@ def upload_team_rankings() -> None:
 
 # process the date and return the string for API calling
 def get_date_str(arg_date: date) -> str: 
-     # process the first date 
+    # process the first date 
     year, month, day = arg_date.year, arg_date.month, arg_date.day
     if month < 10 and day < 10: 
         date_str = f"{year}-0{month}-0{day}"
@@ -73,18 +73,9 @@ def get_date_str(arg_date: date) -> str:
     return date_str
 
 
-# upload data about the matches and bets for each match to the database 
-def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]: 
-    # process the first date and last date of the week 
-    from_date_str = get_date_str(date.today())
-    if date.today().weekday() == 0: 
-        to_date_str = get_date_str(date.today() + timedelta(days=3))
-    elif date.today().weekday() == 4: 
-        to_date_str = get_date_str(date.today() + timedelta(days=2))
-    else: 
-        return Match.objects.none()
-
-    # from_date_str, to_date_str = "2024-12-22", "2024-12-22" # used for testing 
+# upload data about the matches between 2 given dates to the database 
+def generic_upload_matches(league_name: str, league_id: int, from_date_str: str, to_date_str: str) -> int: 
+    # call the API 
     api_matches_data = get_not_started_matches(league_id, from_date_str, to_date_str)
     not_started_matches= [] # list of Match objects 
 
@@ -100,164 +91,146 @@ def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]:
     # only one database query 
     created_matches = Match.objects.bulk_create(not_started_matches) 
     # notify the user 
-    print(f"{len(not_started_matches)} matches of {league_name} uploaded successfully!")
+    print(f"{len(created_matches)} matches of {league_name} uploaded successfully!")
     return created_matches
+
+
+# upload data about the matches periodically to the database 
+def upload_matches(league_name: str, league_id: int) -> int: 
+    # process the first date and last date of the week 
+    from_date_str = get_date_str(date.today())
+    if date.today().weekday() == 0: 
+        to_date_str = get_date_str(date.today() + timedelta(days=3))
+    elif date.today().weekday() == 4: 
+        to_date_str = get_date_str(date.today() + timedelta(days=2))
+    else: 
+        return Match.objects.none() 
+     
+    # call above function 
+    return generic_upload_matches(league_name, league_id, from_date_str, to_date_str)
 
 
 # upload of the bets for each match in the list of arg_matches
 def upload_match_bets(arg_matches: QuerySet[Match]) -> None: 
     for match in arg_matches:  
         # save the data about the moneyline bets of the match to database
-        moneyline_info_data = get_moneyline_bets("moneyline", match.match_id, match.home_team, match.away_team)
-        moneyline_bet_infos = [] # list of MoneylineBetInfo objs 
+        moneyline_info_data = get_winner_bets("moneyline", match.match_id, match.home_team, match.away_team)
+        moneyline_info_list = [] # list of MoneylineBetInfo objs 
 
         for bet_info in moneyline_info_data:
-            moneyline_bet_infos.append(MoneylineBetInfo(
+            moneyline_info_list.append(MoneylineBetInfo(
                 match=match, time_type=bet_info["time_type"], bet_object=bet_info["bet_object"] , 
                 bet_team=bet_info["bet_team"], odd=bet_info["odd"]
             )) 
-        MoneylineBetInfo.objects.bulk_create(moneyline_bet_infos) # one database query
+        created_moneyline = MoneylineBetInfo.objects.bulk_create(moneyline_info_list) # one database query
         # notify bets have been saved
-        print(f"{len(moneyline_bet_infos)} moneyline bets of match {match} uploaded successfully!") 
+        print(f"{len(created_moneyline)} moneyline bets of match {match} uploaded successfully!") 
 
         # save the data about the handicap bets of the match to the database
-        handicap_info_data = get_moneyline_bets("handicap", match.match_id, match.home_team, match.away_team)
-        handicap_bet_infos = []
+        handicap_info_data = get_winner_bets("handicap", match.match_id, match.home_team, match.away_team)
+        handicap_info_list = []
 
         for bet_info in handicap_info_data: 
-            handicap_bet_infos.append(HandicapBetInfo(
+            handicap_info_list.append(HandicapBetInfo(
                 match=match, time_type=bet_info["time_type"], bet_object=bet_info["bet_object"],
                 bet_team=bet_info["bet_team"], handicap_cover=bet_info["handicap_cover"], odd=bet_info["odd"]
             ))
-        HandicapBetInfo.objects.bulk_create(handicap_bet_infos)
-        print(f"{len(handicap_bet_infos)} handicap bets of match {match} uploaded successfully!") 
+        created_handicap = HandicapBetInfo.objects.bulk_create(handicap_info_list)
+        print(f"{len(created_handicap)} handicap bets of match {match} uploaded successfully!") 
                    
         # save the data about the total goals bet of the match to the database
-        total_objs_info_data = get_total_bets(match.match_id, match.home_team, match.away_team)
-        total_objs_bet_infos = [] 
+        total_info_data = get_total_bets(match.match_id, match.home_team, match.away_team)
+        total_info_list = [] 
 
-        for bet_info in total_objs_info_data: 
-            total_objs_bet_infos.append(TotalObjectsBetInfo(
+        for bet_info in total_info_data: 
+            total_info_list.append(TotalObjectsBetInfo(
                 match=match, time_type=bet_info["time_type"], bet_object=bet_info["bet_object"], 
                 under_or_over=bet_info["under_or_over"], target_num_objects=bet_info["num_objects"], odd=bet_info["odd"]
             ))
-        TotalObjectsBetInfo.objects.bulk_create(total_objs_bet_infos)
-        print(f"{len(total_objs_bet_infos)} total goals bets of match {match} uploaded successfully!")
+        created_total = TotalObjectsBetInfo.objects.bulk_create(total_info_list)
+        print(f"{len(created_total)} total goals bets of match {match} uploaded successfully!")
         
 
-# update the score of the matches 
-def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
-    # process the given date 
-    given_date_str = get_date_str(date.today())
-
-    # given_date_str = "2024-12-22" # used for testing 
+# update the score of the matches on the given date 
+def generic_update_match_scores(league_name: str, league_id: int, given_date_str: str) -> QuerySet[Match]: 
     match_scores_data = get_match_score(league_id, given_date_str)
-    queried_matches = [] # list of Match objects 
+    matches = [] # list of Match objects 
 
     for i, match_score in enumerate(match_scores_data):
         try: 
-            queried_matches.append(Match.objects.get(match_id=match_score["match_id"]))
+            matches.append(Match.objects.get(match_id=match_score["match_id"]))
             # update the main score
-            queried_matches[i].status = "Finished"
-            queried_matches[i].updated_date = date.today()
-            queried_matches[i].halftime_score = match_score["halftime"]
-            queried_matches[i].fulltime_score = match_score["fulltime"]
-            queried_matches[i].penalty = match_score["penalty"]
+            matches[i].status = "Finished"
+            matches[i].updated_date = date.today()
+            matches[i].halftime_score = match_score["halftime"]
+            matches[i].fulltime_score = match_score["fulltime"]
+            matches[i].penalty = match_score["penalty"]
 
             # update the other stats for users to see 
-            queried_matches[i].possesion = match_score["possession"]
-            queried_matches[i].total_shots = match_score["total_shots"]
-            queried_matches[i].corners = match_score["corners"]
-            queried_matches[i].cards = match_score["cards"]
+            matches[i].possesion = match_score["possession"]
+            matches[i].total_shots = match_score["total_shots"]
+            matches[i].corners = match_score["corners"]
+            matches[i].cards = match_score["cards"]
 
         except Match.DoesNotExist: 
             pass # if the match doesn't exist, move to the next match
     
     # only do the database operation if list is not empty 
     updated_field_list = ["status", "updated_date", "halftime_score", "fulltime_score", "penalty", "possesion", "total_shots", "corners", "cards"]
-    num_updated_matches = Match.objects.bulk_update(queried_matches, updated_field_list) # 1 query
+    num_updated_matches = Match.objects.bulk_update(matches, updated_field_list) # 1 query
 
     # get the updated queryset 
-    updated_matches = Match.objects.filter(match_id__in=[match.match_id for match in queried_matches])
+    updated_matches = Match.objects.filter(match_id__in=[match.match_id for match in matches])
     # notify the user that matches have been updated 
     print(f"{num_updated_matches} finished matches of {league_name} updated successfully!")  
     # return the list of the matches that have been updated 
     return updated_matches
 
 
+# update the matches scores of matches finished today
+def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
+    given_date_str = get_date_str(date.today())
+    # call above function 
+    return generic_update_match_scores(league_name, league_id, given_date_str)
+
+
 # delete the bet infos from the given queryset of matches that are without user bets
 def delete_empty_bet_infos(arg_matches: QuerySet[Match]) -> None: 
     for match in arg_matches: 
-        MoneylineBetInfo.objects.annotate(moneyline_bet_count=Count('usermoneylinebet')).filter(match=match, moneyline_bet_count=0).delete()
-        HandicapBetInfo.objects.annotate(handicap_bet_count=Count('userhandicapbet')).filter(match=match, handicap_bet_count=0).delete()
-        TotalObjectsBetInfo.objects.annotate(total_bet_count=Count('usertotalobjectsbet')).filter(match=match, total_bet_count=0).delete()
+        # filter the queryset of bet info that has 0 corresponding user bets 
+        MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')).filter(match=match, bet_count=0).delete()
+        HandicapBetInfo.objects.annotate(bet_count=Count('userhandicapbet')).filter(match=match, bet_count=0).delete()
+        TotalObjectsBetInfo.objects.annotate(bet_count=Count('usertotalobjectsbet')).filter(match=match, bet_count=0).delete()
+        # login the console
         print(f"Empty bet infos of match {match} deleted successfully!")
 
 
-# Settle the bets that are associated with the matches 
-# Update the bet infos 
+"""
+Settle the bets that are associated with the matches 
+Update the bet infos 
+"""
 def settle_bets(arg_matches: QuerySet[Match]) -> None: 
     for match in arg_matches: 
         # settle all the moneyline bets of the match 
-        moneyline_bet_list = UserMoneylineBet.objects.filter(bet_info__match=match).order_by('user')
-        total = settle_moneyline_bet_list(moneyline_bet_list)
+        moneyline_bet_list = UserMoneylineBet.objects.filter(bet_info__match=match)
+        total = settle_bet_list("moneyline", moneyline_bet_list)
         # update the status and settled date of list of bet info
         MoneylineBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} moneyline bets of match {match} settled!")
                         
         # settle all the handicap bets of the match 
-        handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match).order_by('user')
-        total = settle_handicap_bet_list(handicap_bet_list)
+        handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match)
+        total = settle_bet_list("handicap", handicap_bet_list)
         # update the status and settled date
         HandicapBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} handicap bets of match {match} settled!")
                             
         # settle all the total goals bets of the match 
-        total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match).order_by('user')
-        total = settle_total_objects_bet_list(total_goals_bet_list)
+        total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match)
+        total = settle_bet_list("total_objs", total_goals_bet_list)
         # update the status and settled date 
         TotalObjectsBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} total objects bets of match {match} settled!")
-
-
-# function to generate the testing bets to the user to test settle functions
-@transaction.atomic
-def upload_user_bets(limit: int): 
-    user_ix = 1
-    moneyline_info_list = MoneylineBetInfo.objects.all()[:limit]
-    created_moneyline_list = []
-    for bet_info in moneyline_info_list: 
-        created_moneyline_list.append(UserMoneylineBet(
-            user=User.objects.get(pk=user_ix), bet_info=bet_info, created_date=date.today(),
-            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
-        ))
-        user_ix = (user_ix + 1) if user_ix < 3 else 1
-    UserMoneylineBet.objects.bulk_create(created_moneyline_list)
-    print("Moneyline bet created successfully")
-
-    handicap_info_list = HandicapBetInfo.objects.all()[:limit]
-    user_ix = 1
-    created_handicap_list = []
-    for bet_info in handicap_info_list: 
-        created_handicap_list.append(UserHandicapBet(
-            user=User.objects.get(pk=user_ix), bet_info=bet_info, created_date=date.today(),
-            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
-        ))
-        user_ix = (user_ix + 1) if user_ix < 3 else 1
-    UserHandicapBet.objects.bulk_create(created_handicap_list)
-    print("Handicap bet created successfully")
-
-    total_goals_info_list = TotalObjectsBetInfo.objects.all()[:limit]
-    user_ix = 1
-    created_goals_list = []
-    for bet_info in total_goals_info_list: 
-        created_goals_list.append(UserTotalObjectsBet(
-            user=User.objects.get(pk=user_ix), bet_info=bet_info, created_date=date.today(),
-            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
-        ))
-        user_ix = (user_ix + 1) if user_ix < 3 else 1
-    UserTotalObjectsBet.objects.bulk_create(created_goals_list)
-    print("Total goals bet created successfully")
 
 
 def main(): 
