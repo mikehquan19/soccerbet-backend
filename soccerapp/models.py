@@ -1,22 +1,19 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 # User of the app
-class User(models.Model): 
-    first_name = models.CharField(max_length=200)
-    last_name = models.CharField(max_length=200)
-    email = models.EmailField()
-    username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=150)
-    balance = models.DecimalField(max_digits=12, decimal_places=2)
+class User(AbstractUser): 
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    # example: mikequan19
-    def __str__(self) -> str:
+    def __str__(self) -> str: 
         return self.username
-    
 
-# Team (the number of teams is fixed)
-# used for part of the page where people can comment on the team, and rankings 
-# many other objects include: Comment, Reply, etc.
+"""
+    Team (the number of teams is fixed)
+    used for part of the page where people can comment on the team, and rankings 
+    many other objects include: Comment, Reply, etc.
+"""
 class Team(models.Model): 
     league = models.CharField(max_length=100, choices={
         "Premiere League": "EPL",
@@ -25,7 +22,6 @@ class Team(models.Model):
     }, default="Premiere League")
     name = models.CharField(max_length=150, unique=True)
     nickname = models.CharField(max_length=150, null=True, blank=True)
-    # the images of the team's logo
     logo = models.URLField("logo of the team", null=True, blank=True)
 
     # info for the history of the team 
@@ -40,7 +36,30 @@ class Team(models.Model):
         return self.name
     
 
-# rakng of the team in the league 
+# The comment to the team 
+class Comment(models.Model): 
+    # the team and user this comment belongs to 
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    team = models.ForeignKey(Team, on_delete=models.CASCADE)
+
+    created_time = models.DateTimeField(default=timezone.now, blank=True)
+    content = models.TextField()
+    # list of likes from other users 
+    likes = models.ManyToManyField(User, related_name='like_users', blank=True)
+
+    # the parent comment this comment belongs to & the actual user this comment replies to 
+    replyToComment = models.ForeignKey('self', on_delete=models.CASCADE, blank=True, null=True)
+    replyToUsername = models.CharField(max_length=150, default="", blank=True)
+    
+    class Meta: 
+        ordering = ["team", "-created_time"]
+
+    def __str__(self) -> str: 
+        str = f"{self.user}'s comment on {self.team}"
+        if self.replyToUsername != "": str += f" to {self.replyToUsername}" 
+        return str
+
+# ranking of the team in the league 
 class TeamRanking(models.Model): 
     league = models.CharField(max_length=100, choices={
         "Champions League": "UCL", 
@@ -108,10 +127,7 @@ class Match(models.Model):
 # the moneyline bet info 
 class MoneylineBetInfo(models.Model): 
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    time_type = models.CharField(max_length=50, choices={
-        "full time": "full_time", 
-        "half time": "half_time",
-    })
+    time_type = models.CharField(max_length=50, choices={"full time": "full_time", "half time": "half_time" })
     bet_object = models.CharField(max_length=50, choices={
         "Goals": "Goals", 
         "Corners": "Corners", 
@@ -147,9 +163,7 @@ class UserMoneylineBet(models.Model):
 # the handicap bet info 
 class HandicapBetInfo(models.Model): 
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    time_type = models.CharField(max_length=50, choices={
-        "full time": "full_time", 
-        "half time": "half_time"})
+    time_type = models.CharField(max_length=50, choices={"full time": "full_time",  "half time": "half_time"})
     bet_object = models.CharField(max_length=50, choices={
         "Goals": "Goals", 
         "Corners": "Corners", 
