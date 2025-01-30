@@ -9,8 +9,12 @@ from soccerapp.models import (
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet,
 )
 from . import MoneylineBetInfoSerializer, HandicapBetInfoSerizalizer, TotalObjectsBetInfoSerializer
-from .serializer_utils import * 
+from .validator import CustomValidator
 
+# custom validator 
+moneyline_validator = CustomValidator(MoneylineBetInfo, UserMoneylineBet)
+handicap_validator = CustomValidator(HandicapBetInfo, UserHandicapBet)
+total_objs_validator = CustomValidator(TotalObjectsBetInfo, UserTotalObjectsBet)
 
 # the list serializer to handle the list of UserMoneylineBet objects
 # used by UserMoneylineBetSerializer
@@ -18,7 +22,7 @@ class MoneylineBetListSerializer(serializers.ListSerializer):
     # create the list of UserMoneylineBet objects 
     def create(self, validated_data): 
         # moneyline_bet_list: the list of moneyline bets to be saved to database
-        moneyline_data_list, total_bet_amount = validate_create_data(MoneylineBetInfo, UserMoneylineBet, validated_data)
+        moneyline_data_list, total_bet_amount = moneyline_validator.validate_create(validated_data)
     
         # save these moneyline bets to the user 
         # maintain the integrity of the data 
@@ -29,7 +33,7 @@ class MoneylineBetListSerializer(serializers.ListSerializer):
     
 
 # serializer of the user moneyline bets
-class UserMoneylineBetSerializer(serializers.ModelSerializer): 
+class UserMoneylineBetSerializer(serializers.ModelSerializer):
     class Meta: 
         # the list serializer to cutomize the creationt of multiple objects 
         list_serializer_class = MoneylineBetListSerializer 
@@ -41,19 +45,23 @@ class UserMoneylineBetSerializer(serializers.ModelSerializer):
     # update the bet amount of the UserMoneylineBet object (other fields not allowed)
     def update(self, instance, validated_data): 
         # validate the data to be updated 
-        validate_update_data(MoneylineBetInfo, instance, validated_data)
+        moneyline_validator.validate_update(instance, validated_data)
         
         # update the bet amount (if any) of the bet 
         instance.bet_amount = validated_data["bet_amount"]
         instance.save()
         return instance
     
+    def to_internal_value(self, data):
+        data["bet_info"].pop("match_name") # pop match name from the bet info
+        return super().to_internal_value(data)
+    
     # the representation of the bet in the json data
     def to_representation(self, instance):
         bet_representation = super().to_representation(instance)
         bet_representation["username"] = instance.user.username
         return bet_representation
-    
+
 
 # serializer for the list of handicap bets 
 # used by UserHandicapBetSerializer 
@@ -61,7 +69,7 @@ class HandicapBetListSerializer(serializers.ListSerializer):
     # create the list of UserHandicapBet objects 
     def create(self, validated_data): 
         # handicap_data_list: the list of handicap bets to be saved to database
-        handicap_data_list, total_bet_amount = validate_create_data(HandicapBetInfo, UserHandicapBet, validated_data)
+        handicap_data_list, total_bet_amount = handicap_validator.validate_create(validated_data)
 
         # save this handicap bet to the user 
         # maintain the integrity of the data 
@@ -82,8 +90,8 @@ class UserHandicapBetSerializer(serializers.ModelSerializer):
     # update the UserHandicapBet object 
     def update(self, instance, validated_data): 
         # validate the data to be updated 
-        validate_update_data(HandicapBetInfo, instance, validated_data)
-        
+        handicap_validator.validate_update(instance, validated_data)
+
         # update the bet amount (if any) of the bet 
         instance.bet_amount = validated_data["bet_amount"]
         instance.save()
@@ -94,7 +102,7 @@ class UserHandicapBetSerializer(serializers.ModelSerializer):
         bet_representation = super().to_representation(instance)
         bet_representation["username"] = instance.user.username
         return bet_representation
-    
+
 
 # serializer to handle the list of UserTotalGoalsBet objects 
 # used by UserTotalGoalsSerializer 
@@ -102,7 +110,7 @@ class TotalObjectsBetListSerializer(serializers.ListSerializer):
     # handle the creation of multiple UserTotalGoalsBet 
     def create(self, validated_data): 
         # validate the data to be added 
-        objects_data_list, total_bet_amount = validate_create_data(TotalObjectsBetInfo, UserTotalObjectsBet, validated_data)
+        objects_data_list, total_bet_amount = total_objs_validator.validate_create(validated_data)
         
         # save this handicap bet to the user
         # maintain the integrity of the data 
@@ -123,7 +131,7 @@ class UserTotalObjectsBetSerializer(serializers.ModelSerializer):
     # update the UserTotalGoals object 
     def update(self, instance, validated_data): 
         # validate the data to be updated 
-        validate_update_data(TotalObjectsBetInfo, instance, validated_data)
+        total_objs_validator.validate_update(instance, validated_data)
         
         # update the bet amount (if any) of the bet 
         instance.bet_amount = validated_data["bet_amount"]
