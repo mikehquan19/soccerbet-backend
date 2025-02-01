@@ -3,19 +3,7 @@
 ## About
 
 ### Introduction
-The backend of **SoccerBet**, the app that
-- serves info about upcoming **soccer matches** of different leagues or tournaments, current league **standings**, **stats** of finished matches, and **bets** for each match. 
-
-- simulates the platform where users can **bet on games**, experience winning or losing, and **communicate** with each other on any team about anything through comment sections. 
-
-Leagues and tournaments that it currently covers: 
-- **Champions League (UCL)**
-- **Premiere League (EPL)**
-- **La Liga (LAL)**
-- **Bundesliga (BUN)**
-
-Bigger tournaments such as **FIFA World Cup**, **UEFA EURO**, or **Copa America** are seasonal and will be covered when the time comes. More leagues can also be covered in the future.
-
+The backend of **SoccerBet**
 The API will be used to provide the data to the **SoccerBet's front-end** (coming soon).
 
 ### Design
