@@ -88,7 +88,7 @@ class UserMoneylineBetDetail(APIView):
                 # adjust the balance of the user 
                 bet_owner = updated_bet.user 
                 bet_amount_difference = old_bet_amount - updated_bet.bet_amount
-                bet_owner.balance += (bet_amount_difference * 1.05) # include the extra fees for placing the bets
+                bet_owner.balance += (bet_amount_difference * Decimal(1.05)) # include the extra fees for placing the bets
                 bet_owner.save()
             # return the updated data
             return Response(updated_bet_serializer.data, status=status.HTTP_202_ACCEPTED)
@@ -103,7 +103,7 @@ class UserMoneylineBetDetail(APIView):
         with transaction.atomic(): 
             # return the amount the user bet back to the user
             bet_owner = queried_moneyline_bet.user 
-            bet_owner.balance += queried_moneyline_bet.bet_amount 
+            bet_owner.balance += queried_moneyline_bet.bet_amount * Decimal(1.05)
             bet_owner.save()
             
             # delete the monyeline bet from the database 
