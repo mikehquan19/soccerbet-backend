@@ -119,6 +119,7 @@ class MoneylineInfoList(APIView):
         for time_type in list(response_data.keys()): 
             # list of moneyline bet info for this time type 
             type_moneyline_list = moneyline_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
+            
             # serializer 
             type_moneyline_data = MoneylineBetInfoSerializer(type_moneyline_list, many=True).data
             response_data[time_type] = type_moneyline_data
@@ -170,6 +171,7 @@ class HandicapInfoList(APIView):
         for time_type in list(response_data.keys()): 
             # list and serialize handicap bet info for this time type
             type_handicap_list = handicap_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
+
             type_handicap_data = HandicapBetInfoSerizalizer(type_handicap_list, many=True).data
             response_data[time_type] = self.group_handicap_info(type_handicap_data, queried_match.home_team) 
         return Response(response_data)
@@ -185,19 +187,19 @@ class TotalObjectsInfoList(APIView):
     """
     def group_total_objects_info(self, total_objs_info_list: list) -> list: 
         num_to_total_info = {}  # dict mapping the target number of objects to list of total bets 
-        for total_objects_info in total_objs_info_list:
+        for total_objs_info in total_objs_info_list:
             # the target number of goals 
-            target_num_objects = total_objects_info["target_num_objects"]
+            target_num_objs = total_objs_info["target_num_objects"]
 
             # if this number of goals isn't already in dict, add them
-            if target_num_objects not in num_to_total_info: 
-                num_to_total_info[target_num_objects] = {"under": None, "over": None}
+            if target_num_objs not in num_to_total_info: 
+                num_to_total_info[target_num_objs] = {"under": None, "over": None}
 
             # put the total-goals bet info into the right place of the list 
-            if total_objects_info["under_or_over"] == "Under": 
-                num_to_total_info[target_num_objects]["under"] = total_objects_info
+            if total_objs_info["under_or_over"] == "Under": 
+                num_to_total_info[target_num_objs]["under"] = total_objs_info
             else: 
-                num_to_total_info[target_num_objects]["over"] = total_objects_info
+                num_to_total_info[target_num_objs]["over"] = total_objs_info
                 
         # convert dictionary into the list of grouped bet info
         grouped_total_info_list = [grouped_info for grouped_info in list(num_to_total_info.values())]
@@ -217,6 +219,7 @@ class TotalObjectsInfoList(APIView):
         for time_type in list(response_data.keys()): 
             # list of total goals bet info for this time type
             type_objs_list =   objs_info_list.filter(time_type=TIME_TYPE_MAP[time_type])
+
             # serialized data of the list 
             type_objs_data = TotalObjectsBetInfoSerializer(type_objs_list, many=True).data
             response_data[time_type] = self.group_total_objects_info(type_objs_data)

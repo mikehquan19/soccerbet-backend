@@ -15,6 +15,7 @@ from soccerapp.serializers import (
     UserMoneylineBetSerializer, UserHandicapBetSerializer, UserTotalObjectsBetSerializer
 )
 from soccerapp.serializers import CustomValidator
+from decimal import Decimal
 
 # the validator used to validate the DELETE method endpoint 
 bet_validator = CustomValidator() 
@@ -190,7 +191,7 @@ class UserBetDetail(generics.RetrieveUpdateDestroyAPIView):
             # adjust the balance of the user 
             bet_owner = updated_bet.user 
             bet_amount_difference = old_bet_amount - updated_bet.bet_amount
-            bet_owner.balance += bet_amount_difference * 1.05 # extra fees 
+            bet_owner.balance += bet_amount_difference * Decimal(1.05) # extra fees 
             bet_owner.save()
         return updated_bet
 
@@ -200,7 +201,7 @@ class UserBetDetail(generics.RetrieveUpdateDestroyAPIView):
         with transaction.atomic(): 
             # return the amount the user bet back to the user
             bet_owner = instance.user 
-            bet_owner.balance += instance.bet_amount * 1.05 # extra fees 
+            bet_owner.balance += instance.bet_amount * Decimal(1.05) # extra fees 
             bet_owner.save()
             # delete the monyeline bet from the database 
             instance.delete()
