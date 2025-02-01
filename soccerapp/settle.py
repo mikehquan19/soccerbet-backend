@@ -6,6 +6,7 @@ from .models import (
     User, TotalObjectsBetInfo, HandicapBetInfo, 
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 )
+from decimal import Decimal
 
 """
 get the result of the bet info from its match
@@ -63,20 +64,27 @@ def determine_winner_payout(bet_info, bet_amount, handicap_cover=None):
         then recursively settle 2 European bets corresponding to this Asian bet, return the sum of payout
     """
     if handicap_cover is not None:
-        cover_decimal = handicap_cover - int(handicap_cover) 
+        cover_decimal = abs(float(handicap_cover - int(handicap_cover))) 
         if cover_decimal == 0.25 or cover_decimal == 0.75: 
-            first_payout = determine_winner_payout(bet_info, bet_amount / 2, handicap_cover - 0.25)
-            second_payout = determine_winner_payout(bet_info, bet_amount / 2, handicap_cover + 0.25)
-            # total payout is the sum of 2 payouts 
-            return first_payout + second_payout
+            first_payout = determine_winner_payout(bet_info, bet_amount / 2, handicap_cover - Decimal(0.25))
+            second_payout = determine_winner_payout(bet_info, bet_amount / 2, handicap_cover + Decimal(0.25))
+            return first_payout + second_payout # total payout is the sum of 2 payouts 
     
     try: # if it's not asian handicap, determine the payout as usual 
         win_team, _ = get_results(bet_info, handicap_cover)
     except ValueError: 
+        """
+            the value error indicates that results not available, there's nothing to settle
+            so we will refund the money back to the user
+        """
         total_payout = bet_amount
     else: 
-        total_payout = 0 # default when the win team doesn't match bet team, user loses and get nothing back
-        if win_team == bet_info.bet_team: 
+        # default when the win team doesn't match bet team, user loses and get nothing back
+        total_payout = 0 
+        if win_team == "Draw": 
+            # if the 2 teams of the game draw (considering the handicap cover), we will refund the bet
+            total_payout = bet_amount 
+        elif win_team == bet_info.bet_team: 
             total_payout = compute_payout(bet_info.odd, bet_amount)
     return total_payout
 
@@ -87,12 +95,11 @@ def determine_total_objs_payout(bet_info: TotalObjectsBetInfo, bet_amount, targe
         determine if it's Asian total objs bet, 
         then recursively settle 2 European bets corresponding to this Asian bet, return the sum of payout
     """
-    num_decimal = target_num_objs - int(target_num_objs)
+    num_decimal = abs(float(target_num_objs - int(target_num_objs)))
     if num_decimal == 0.25 or num_decimal == 0.75: 
-        first_payout = determine_total_objs_payout(bet_info, bet_amount / 2, target_num_objs - 0.25)
-        second_payout = determine_total_objs_payout(bet_info, bet_amount / 2, target_num_objs + 0.25)
-        # total payout is the sum of 2 payouts 
-        return first_payout + second_payout
+        first_payout = determine_total_objs_payout(bet_info, bet_amount / 2, target_num_objs - Decimal(0.25))
+        second_payout = determine_total_objs_payout(bet_info, bet_amount / 2, target_num_objs + Decimal(0.25)) 
+        return first_payout + second_payout # total payout is the sum of 2 payouts
             
     try:  # determine the total objs of the match as usual 
         _, total_bet_objs = get_results(bet_info)
@@ -116,6 +123,9 @@ def determine_total_objs_payout(bet_info: TotalObjectsBetInfo, bet_amount, targe
     return total_payout
 
 
+"""
+THE MAIN FUNCTION: SETTLE THE QUERYSET OF BETS OF ANY TYPE
+"""
 def settle_bet_list(bet_type: str, arg_bet_list) -> int: 
     arg_bet_list = arg_bet_list.order_by("user") # group the list by users 
 
@@ -135,14 +145,14 @@ def settle_bet_list(bet_type: str, arg_bet_list) -> int:
         if bet_type == "total_objs": 
             total_payout = determine_total_objs_payout(bet_info, bet_amount, bet_info.target_num_objects)
         else: 
-            if isinstance(bet_info, HandicapBetInfo): handicap_cover = bet_info.handicap_cover
+            handicap_cover = bet_info.handicap_cover if isinstance(bet_info, HandicapBetInfo) else None
             total_payout = determine_winner_payout(bet_info, bet_amount, handicap_cover)
     
         # update the payout of the bets and balance of the user 
         updated_bet_list[i].payout = total_payout
         updated_user_list[user_ix].balance += total_payout
 
-    # update the payout of the bets
+    # update the payout of the list of bets
     if bet_type == "moneyline": 
         num_updated_bets = UserMoneylineBet.objects.bulk_update(updated_bet_list, ["payout"])
     elif bet_type == "handicap": 
@@ -152,6 +162,6 @@ def settle_bet_list(bet_type: str, arg_bet_list) -> int:
     else: 
         raise Exception("The bet type is invalid.")
     
-    # update the balance of the users
+    # update the balance of the list of users
     User.objects.bulk_update(updated_user_list, ["balance"]) # update the user's balance
     return num_updated_bets

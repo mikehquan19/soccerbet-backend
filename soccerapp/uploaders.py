@@ -74,7 +74,7 @@ def get_date_str(arg_date: date) -> str:
 
 
 # upload data about the matches between 2 given dates to the database 
-def generic_upload_matches(league_name: str, league_id: int, from_date_str: str, to_date_str: str) -> int: 
+def generic_upload_matches(league_name: str, league_id: int, from_date_str: str, to_date_str: str) -> QuerySet[Match]: 
     # call the API 
     api_matches_data = get_not_started_matches(league_id, from_date_str, to_date_str)
     not_started_matches= [] # list of Match objects 
@@ -95,17 +95,16 @@ def generic_upload_matches(league_name: str, league_id: int, from_date_str: str,
     return created_matches
 
 
-# upload data about the matches periodically to the database 
-def upload_matches(league_name: str, league_id: int) -> int: 
+# upload data about the matches automatically and periodically to the database
+def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]: 
     # process the first date and last date of the week 
     from_date_str = get_date_str(date.today())
-    if date.today().weekday() == 0: 
-        to_date_str = get_date_str(date.today() + timedelta(days=3))
-    elif date.today().weekday() == 4: 
-        to_date_str = get_date_str(date.today() + timedelta(days=2))
-    else: 
-        return Match.objects.none() 
-     
+    weekday = date.today().weekday()
+    if weekday >= 0 and weekday <= 3: # monday to thursday
+        to_date_str = get_date_str(date.today() + timedelta(days=(3 - weekday)))
+    else: # friday to sunday
+        to_date_str = get_date_str(date.today() + timedelta(days=(6 - weekday)))
+
     # call above function 
     return generic_upload_matches(league_name, league_id, from_date_str, to_date_str)
 
@@ -158,7 +157,8 @@ def generic_update_match_scores(league_name: str, league_id: int, given_date_str
 
     for i, match_score in enumerate(match_scores_data):
         try: 
-            matches.append(Match.objects.get(match_id=match_score["match_id"]))
+            # get the match that is already finished
+            matches.append(Match.objects.get(match_id=match_score["match_id"], status="Not Finished"))
             # update the main score
             matches[i].status = "Finished"
             matches[i].updated_date = date.today()
@@ -214,6 +214,7 @@ def settle_bets(arg_matches: QuerySet[Match]) -> None:
         # settle all the moneyline bets of the match 
         moneyline_bet_list = UserMoneylineBet.objects.filter(bet_info__match=match)
         total = settle_bet_list("moneyline", moneyline_bet_list)
+
         # update the status and settled date of list of bet info
         MoneylineBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} moneyline bets of match {match} settled!")
@@ -221,6 +222,7 @@ def settle_bets(arg_matches: QuerySet[Match]) -> None:
         # settle all the handicap bets of the match 
         handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match)
         total = settle_bet_list("handicap", handicap_bet_list)
+
         # update the status and settled date
         HandicapBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} handicap bets of match {match} settled!")
@@ -228,6 +230,7 @@ def settle_bets(arg_matches: QuerySet[Match]) -> None:
         # settle all the total goals bets of the match 
         total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match)
         total = settle_bet_list("total_objs", total_goals_bet_list)
+        
         # update the status and settled date 
         TotalObjectsBetInfo.objects.filter(match=match).update(status="Settled", settled_date=date.today())
         print(f"{total} total objects bets of match {match} settled!")

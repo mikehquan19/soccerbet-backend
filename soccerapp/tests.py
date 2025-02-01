@@ -1,21 +1,23 @@
 from django.db import transaction
-from django.db.models import QuerySet, Count
+from django.db.models import QuerySet
 from .models import (
     User, Match,
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo, 
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 ) 
-from .uploaders import generic_update_match_scores, settle_bets, get_date_str
+from .uploaders import ( 
+    generic_update_match_scores, settle_bets, get_date_str
+)
 from datetime import date
 import time 
 
 
 """
-function to generate the testing bets to the user to test settle functions
-USED FOR TESTING THE SPEED OF THE SYSTEM, so run manually 
+    function to generate the testing bets to the user to test settle functions
+    used for testing the speed and accuracy, so run manually 
 """
 @transaction.atomic
-def upload_test_user_bets(matches: QuerySet[Match]): 
+def test_upload_user_bets(matches: QuerySet[Match]): 
     users = [user for user in User.objects.all()[:5]]
 
     moneyline_info_list = MoneylineBetInfo.objects.filter(match__in=matches)
@@ -53,8 +55,8 @@ def upload_test_user_bets(matches: QuerySet[Match]):
 function to update the scores of the matches in params, and settle the bets 
 """
 @transaction.atomic
-def settle_test_user_bets(matches: QuerySet[Match]): 
-    start = time.time()
+def test_settle_user_bets(matches: QuerySet[Match]): 
+    start = time.time() # time the function to test the speed 
     date_str_list = [get_date_str(match.date) for match in matches]
 
     leagues = {"Champions League": 2, "Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
@@ -62,22 +64,15 @@ def settle_test_user_bets(matches: QuerySet[Match]):
         for name in leagues: 
             updated_matches = generic_update_match_scores(name, leagues[name], date_str)
             settle_bets(updated_matches)
-
-    end = time.time()
+    end = time.time() # time the function 
     print(f"Executed in {end - start} seconds.")
 
 
 def test_upload(): 
     matches = Match.objects.filter(league="Champions League")[:3] # get the first ucl matches
-    upload_test_user_bets(matches)
+    test_upload_user_bets(matches)
     return matches 
 
 
 def test_settle(matches): 
-    settle_test_user_bets(matches)
-    
-
-def main(): 
-    matches = Match.objects.filter(league="Champions League")[:3] # get the first ucl matches 
-    upload_test_user_bets(matches)
-    settle_test_user_bets(matches)
+    test_settle_user_bets(matches)
