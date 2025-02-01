@@ -4,7 +4,7 @@
 
 ### Introduction
 The backend of **SoccerBet**
-The API will be used to provide the data to the **SoccerBet's front-end** (coming soon).
+The API will be used to provide the data to the [**SoccerBet's front-end**](https://github.com/mikehquan19/Soccerbet).
 
 ### Design
 The app gets the data from subscription to [API-Football](https://www.api-football.com/), although web scraping is also a possibility, more affordable, and could be implemented in the future. 
