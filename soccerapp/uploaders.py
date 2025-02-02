@@ -155,22 +155,23 @@ def generic_update_match_scores(league_name: str, league_id: int, given_date_str
     match_scores_data = get_match_score(league_id, given_date_str)
     matches = [] # list of Match objects 
 
-    for i, match_score in enumerate(match_scores_data):
+    for match_score in match_scores_data:
         try: 
             # get the match that is already finished
-            matches.append(Match.objects.get(match_id=match_score["match_id"], status="Not Finished"))
+            match = Match.objects.get(match_id=match_score["match_id"], status="Not Finished")
             # update the main score
-            matches[i].status = "Finished"
-            matches[i].updated_date = date.today()
-            matches[i].halftime_score = match_score["halftime"]
-            matches[i].fulltime_score = match_score["fulltime"]
-            matches[i].penalty = match_score["penalty"]
+            match.status = "Finished"
+            match.updated_date = date.today()
+            match.halftime_score = match_score["halftime"]
+            match.fulltime_score = match_score["fulltime"]
+            match.penalty = match_score["penalty"]
 
             # update the other stats for users to see 
-            matches[i].possesion = match_score["possession"]
-            matches[i].total_shots = match_score["total_shots"]
-            matches[i].corners = match_score["corners"]
-            matches[i].cards = match_score["cards"]
+            match.possesion = match_score["possession"]
+            match.total_shots = match_score["total_shots"]
+            match.corners = match_score["corners"]
+            match.cards = match_score["cards"]
+            matches.append(match)
 
         except Match.DoesNotExist: 
             pass # if the match doesn't exist, move to the next match

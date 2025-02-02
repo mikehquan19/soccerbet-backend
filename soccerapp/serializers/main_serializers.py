@@ -68,6 +68,8 @@ class CommentSerializer(serializers.ModelSerializer):
     """
     show whether this comment is liked by request user and belongs to the user,
     related to user so it can't be done in to_representation()
+
+    they are read-only so can be easily ignored
     """
     is_liked_by_user = serializers.BooleanField(read_only=True) 
     is_from_user = serializers.BooleanField(read_only=True)
@@ -119,6 +121,8 @@ class MoneylineBetInfoSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["match_name"] = instance.match.__str__()
+        representation["match_league"] = instance.match.league
+        representation["match_time"] = instance.match.date.strftime("%m/%d, %H:%M")
         return representation
 
 
@@ -131,6 +135,8 @@ class HandicapBetInfoSerizalizer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["match_name"] = instance.match.__str__()
+        representation["match_league"] = instance.match.league
+        representation["match_time"] = instance.match.date.strftime("%m/%d, %H:%M")
         return representation
 
 
@@ -142,5 +148,8 @@ class TotalObjectsBetInfoSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
+        # these extra fields are not a part of serializers and therefore ignored in validated_data
         representation["match_name"] = instance.match.__str__()
+        representation["match_league"] = instance.match.league
+        representation["match_time"] = instance.match.date.strftime("%m/%d, %H:%M")
         return representation

@@ -91,6 +91,8 @@ soccerapp.tasks.update_teams_rankings: 0 0,12 * * *
 Then, run the following command to get **Celery** up and running: 
 ```
  celery -A soccerbet worker --loglevel=info -c 8 
+
+ # in separate terminal 
  celery -A soccerbet beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
 

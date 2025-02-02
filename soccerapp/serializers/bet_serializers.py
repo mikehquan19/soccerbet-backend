@@ -24,8 +24,7 @@ class MoneylineBetListSerializer(serializers.ListSerializer):
         # moneyline_bet_list: the list of moneyline bets to be saved to database
         moneyline_data_list, total_bet_amount = moneyline_validator.validate_create(validated_data)
     
-        # save these moneyline bets to the user 
-        # maintain the integrity of the data 
+        # save these moneyline bets to the user, maintain the integrity of the data 
         with transaction.atomic(): 
             moneyline_bet_list = UserMoneylineBet.objects.bulk_create(moneyline_data_list)
         # return the list and total bet amount 
@@ -51,10 +50,6 @@ class UserMoneylineBetSerializer(serializers.ModelSerializer):
         instance.bet_amount = validated_data["bet_amount"]
         instance.save()
         return instance
-    
-    def to_internal_value(self, data):
-        data["bet_info"].pop("match_name") # pop match name from the bet info
-        return super().to_internal_value(data)
     
     # the representation of the bet in the json data
     def to_representation(self, instance):
