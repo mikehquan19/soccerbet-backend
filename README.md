@@ -14,7 +14,7 @@ The app will do the following tasks **periodically** to maintain the consistency
 
 - **Every hour**, check if there's any new game that is finished to update the stats for those games (scores, possession, corners, cards, etc), settle all the bets of that game that were placed by the users, and delete all of their bet info that were not placed by any users (empty).
 
-- **Every 12 hours**, update the standings of each league
+- **Every hour**, update the standings of each league
 
 - **Every day**, delete all the finished games and associated settled bets that have been in the database for 2 weeks.
 
@@ -84,7 +84,7 @@ Login the admin page with the username and password you created, add all of the 
 soccerapp.tasks.delete_past_betinfos_and_matches: 0 0 * * * 
 soccerapp.tasks.update_scores_and_settle: 0 * * * *
 soccerapp.tasks.upload_matches_and_bets: 0 0 * * 1.5
-soccerapp.tasks.update_teams_rankings: 0 0,12 * * *
+soccerapp.tasks.update_teams_rankings: 0 * * * *
 
 ```
 

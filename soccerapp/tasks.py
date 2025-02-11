@@ -10,7 +10,7 @@ from datetime import date, timedelta
 LEAGUES = {"Champions League": 2, "Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
 
 
-# CALLED EVERY 12 hours, run by only 1 worker 
+# CALLED EVERY 1 hour, run by only 1 worker 
 @shared_task(bind=True, max_retries=1, default_retry_delay=60)
 @transaction.atomic
 def update_teams_rankings(self) -> None: 
