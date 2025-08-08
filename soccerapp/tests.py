@@ -5,19 +5,16 @@ from .models import (
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo, 
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 ) 
-from .uploaders import ( 
-    generic_update_match_scores, settle_bets, get_date_str
-)
+from .uploaders import generic_update_match_scores, settle_bets, get_date_str
 from datetime import date
 import time 
 
-
-"""
-    function to generate the testing bets to the user to test settle functions
-    used for testing the speed and accuracy, so run manually 
-"""
 @transaction.atomic
 def test_upload_user_bets(matches: QuerySet[Match]): 
+    """
+    Generate the testing bets to the user to test settle functions used for testing the speed and accuracy, so run manually 
+    """
+
     users = [user for user in User.objects.all()[:5]]
 
     moneyline_info_list = MoneylineBetInfo.objects.filter(match__in=matches)
@@ -51,12 +48,11 @@ def test_upload_user_bets(matches: QuerySet[Match]):
     print("Total goals bet created successfully")
 
 
-"""
-function to update the scores of the matches in params, and settle the bets 
-"""
 @transaction.atomic
 def test_settle_user_bets(matches: QuerySet[Match]): 
-    start = time.time() # time the function to test the speed 
+    """ Update the scores of the matches in params, and settle the bets """
+
+    start = time.time() 
     date_str_list = [get_date_str(match.date) for match in matches]
 
     leagues = {"Champions League": 2, "Premiere League": 39, "La Liga": 140, "Bundesliga": 78}
@@ -64,7 +60,7 @@ def test_settle_user_bets(matches: QuerySet[Match]):
         for name in leagues: 
             updated_matches = generic_update_match_scores(name, leagues[name], date_str)
             settle_bets(updated_matches)
-    end = time.time() # time the function 
+    end = time.time() 
     print(f"Executed in {end - start} seconds.")
 
 
