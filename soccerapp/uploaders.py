@@ -17,7 +17,7 @@ import traceback
 @transaction.atomic
 def upload_teams() -> None: 
     """
-    function to upload data about the teams (for the comment and section part of the website).
+    Upload data about the teams (for the comment and section part of the website).
 
     CALLED EVERY YEAR MANUALLY
     """
