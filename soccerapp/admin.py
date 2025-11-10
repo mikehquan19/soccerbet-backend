@@ -3,7 +3,6 @@ from . import models
 
 # Register your models here.
 admin.site.register(models.User)
-admin.site.register(models.Comment)
 admin.site.register(models.Team)
 admin.site.register(models.TeamRanking)
 admin.site.register(models.Match)

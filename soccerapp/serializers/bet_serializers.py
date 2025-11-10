@@ -11,7 +11,8 @@ from soccerapp.models import (
 from . import (
     MoneylineBetInfoSerializer, 
     HandicapBetInfoSerizalizer, 
-    TotalObjectsBetInfoSerializer)
+    TotalObjectsBetInfoSerializer
+)
 from .validator import CustomValidator
 
 moneyline_validator = CustomValidator(MoneylineBetInfo, UserMoneylineBet)
@@ -50,7 +51,9 @@ class UserMoneylineBetSerializer(serializers.ModelSerializer):
     bet_info = MoneylineBetInfoSerializer()
 
     def update(self, instance, validated_data): 
-        """ Update the bet amount of the UserMoneylineBet object (other fields not allowed) """
+        """ 
+        Update the bet amount of the UserMoneylineBet object (other fields not allowed) 
+        """
 
         # validate the data to be updated 
         moneyline_validator.validate_update(instance, validated_data)

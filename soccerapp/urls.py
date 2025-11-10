@@ -17,11 +17,6 @@ urlpatterns = [
     path('matches', views.MatchList.as_view()),
     path('matches/<int:match_id>', views.MatchDetail.as_view()),
 
-    # endpoints for comments 
-    path('comments', views.CommentList.as_view()), # params: 'reply_to' to indicate the parent comment, 'team' to indicate user's pk
-    path('comments/<int:pk>', views.CommentDetail.as_view()),
-    path('like_comment/<int:pk>', views.LikeComment.as_view()),
-
     # endpoints for the bet info
     path('match/<int:match_id>/moneyline_bet_info', views.MoneylineInfoList.as_view()),
     path('match/<int:match_id>/handicap_bet_info', views.HandicapInfoList.as_view()),

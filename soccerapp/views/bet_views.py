@@ -1,6 +1,7 @@
 """
 VIEWS FOR USER'S BET LIST
-NOTE: THE VIEWS HERE WILL BE ONLY ACCESSIBLE BY AUTHENTICATED USER,
+NOTE: 
+THE VIEWS HERE WILL BE ONLY ACCESSIBLE BY AUTHENTICATED USER,
     SO THEY WILL BE IMPLEMENTED PERMISSION CLASSES ISAUTHENTICATED 
 """
 from django.shortcuts import get_object_or_404
@@ -24,7 +25,6 @@ bet_validator = CustomValidator()
 
 class UserDetail(generics.RetrieveAPIView): 
     """ View to show detail of the user  """
-
     permission_classes = [IsAuthenticated]
     serializer_class = UserSerializer
 
@@ -35,83 +35,70 @@ class UserDetail(generics.RetrieveAPIView):
 
 class UserMoneylineBetList(APIView): 
     """ View to list all of the moneyline bets and create new bet """
-
     permission_classes = [IsAuthenticated]
  
     def get(self, request, format=None) -> Response: 
-        """ The GET method """
-
         status = request.query_params.get("status")
         # get the response data and return 
         if status: 
-            moneyline_bet_list = UserMoneylineBet.objects.filter(
-                user=request.user, bet_info__status=status
-            )
+            bet_list = UserMoneylineBet.objects.filter(user=request.user, bet_info__status=status)
         else: 
-            moneyline_bet_list = UserMoneylineBet.objects.filter(user=request.user)
-        bet_list_serializer = UserMoneylineBetSerializer(moneyline_bet_list, many=True)
+            bet_list = UserMoneylineBet.objects.filter(user=request.user)
+        bet_list_serializer = UserMoneylineBetSerializer(bet_list, many=True)
         return Response(bet_list_serializer.data)
     
     def post(self, request, format=None) -> Response: 
-        """ The POST method  """
-
         request_data = request.data
-        # add the user field to request data
-        for item_data in request_data: item_data['user'] = request.user.pk 
+        # Add the user field to request data
+        for data in request_data: data['user'] = request.user.id
 
-        new_bet_list_serializer = UserMoneylineBetSerializer(data=request_data, many=True)
-        if new_bet_list_serializer.is_valid(): 
-            with transaction.atomic(): # maintain the integrity of the data
-                # save the new bet to the database 
-                new_moneyline_bet, total_bet_amount = new_bet_list_serializer.save()
+        new_list_serializer = UserMoneylineBetSerializer(data=request_data, many=True)
+        new_list_serializer.is_valid(raise_exception=True)
+        # Maintain the integrity of the data
+        with transaction.atomic():
+            # save the new bet to the database 
+            new_bet_list, total_bet_amount = new_list_serializer.save()
 
-                # adjust the balance of the user after saving 
-                bet_owner = request.user
-                bet_owner.balance -= total_bet_amount
-                bet_owner.save()
+            # Adjust the balance of the user after saving 
+            bet_owner = request.user
+            bet_owner.balance -= total_bet_amount
+            bet_owner.save()
             
-            return Response(
-                UserMoneylineBetSerializer(new_moneyline_bet, many=True).data, 
-                status=status.HTTP_201_CREATED
-            )
-        return Response(new_bet_list_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        bet_list_serializer = UserMoneylineBetSerializer(new_bet_list, many=True)
+        return Response(bet_list_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class UserMoneylineBetDetail(APIView): 
     """ View to handle the detail of the moneyline bets with given private key """
-
     permission_classes = [AllowAny]
 
-    def get(self, request, pk, format=None) -> Response: 
-        queried_moneyline_bet = get_object_or_404(UserMoneylineBet, pk=pk)
-        bet_serializer = UserMoneylineBetSerializer(queried_moneyline_bet)
+    def get(self, request, pk: int, format=None) -> Response: 
+        moneyline_bet = get_object_or_404(UserMoneylineBet, pk=pk)
+        bet_serializer = UserMoneylineBetSerializer(moneyline_bet)
         return Response(bet_serializer.data)
     
-    def put(self, request, pk, format=None) -> Response: 
-        queried_moneyline_bet = get_object_or_404(UserMoneylineBet, pk=pk)
+    def put(self, request, pk: int, format=None) -> Response: 
+        moneyline_bet = get_object_or_404(UserMoneylineBet, pk=pk)
         updated_bet_serializer = UserMoneylineBetSerializer(
-            queried_moneyline_bet, data=request.data
+            moneyline_bet, data=request.data
         )
 
-        if updated_bet_serializer.is_valid(): 
-            with transaction.atomic(): # maintain integrity 
-                # the old bet amount 
-                old_bet_amount = queried_moneyline_bet.bet_amount
-                updated_bet = updated_bet_serializer.save()
+        updated_bet_serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            # The old bet amount 
+            old_bet_amount = moneyline_bet.bet_amount
+            updated_bet = updated_bet_serializer.save()
 
-                # adjust the balance of the user 
-                bet_owner = updated_bet.user 
-                bet_amount_difference = old_bet_amount - updated_bet.bet_amount
+            # Adjust the balance of the user 
+            bet_owner = updated_bet.user 
+            bet_amount_difference = old_bet_amount - updated_bet.bet_amount
 
-                # include the extra fees for placing the bets
-                bet_owner.balance += bet_amount_difference * Decimal(1.05) 
-                bet_owner.save()
-            # return the updated data
-            return Response(updated_bet_serializer.data, status=status.HTTP_202_ACCEPTED)
-        
-        return Response(updated_bet_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            # Include the extra fees for placing the bets
+            bet_owner.balance += bet_amount_difference * Decimal(1.05) 
+            bet_owner.save()
+        return Response(updated_bet_serializer.data, status=status.HTTP_202_ACCEPTED)
     
-    def delete(self, request, pk, format=None) -> Response: 
+    def delete(self, request, pk: int, format=None) -> Response: 
         queried_moneyline_bet = get_object_or_404(UserMoneylineBet, pk=pk)
         # validate if the instance (bet) is elligible for withdrawing
         bet_validator.validate_delete(queried_moneyline_bet)
@@ -140,7 +127,6 @@ class UserBetList(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         """ Override ```perform_create()``` method to adjust the balance of the user  """
-    
         with transaction.atomic(): 
             new_bet_list, total_bet_amount = serializer.save()
             # adjust the balance of the user 
@@ -159,18 +145,18 @@ class UserBetList(generics.ListCreateAPIView):
         new_bet_list_serializer = self.get_serializer(data=request_data, many=True)
         new_bet_list_serializer.is_valid(raise_exception=True)
 
-        # the queryset of newly added user bets 
+        # The queryset of newly added user bets 
         created_bet_list = self.perform_create(new_bet_list_serializer) 
         
         # return the response with the list 
         return Response(
             self.get_serializer(created_bet_list, many=True).data, 
-            status=status.HTTP_201_CREATED)
+            status=status.HTTP_201_CREATED
+        )
     
 
 class UserHandicapBetList(UserBetList): 
     """ View to list all of the user handicap bets """
-
     serializer_class = UserHandicapBetSerializer
     permission_classes = [IsAuthenticated]
 
@@ -187,13 +173,11 @@ class UserHandicapBetList(UserBetList):
 
 class UserTotalGoalsBetList(UserBetList): 
     """ View to list all of the user total goals bets """
-
     serializer_class = UserTotalObjectsBetSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         """ Get the queryset (list of the user's total goals bets) """
-
         status = self.request.query_params.get("status")
         if not status:  
             total_bet_list = UserTotalObjectsBet.objects.filter(user=self.request.user)
@@ -241,7 +225,6 @@ class UserBetDetail(generics.RetrieveUpdateDestroyAPIView):
 
 class UserHandicapBetDetail(UserBetDetail): 
     """ Handling the detail of the handicap bet """
-
     permission_classes = [IsAuthenticated]
     queryset = UserHandicapBet.objects.all() 
     serializer_class = UserHandicapBetSerializer # the serializer 
@@ -249,7 +232,6 @@ class UserHandicapBetDetail(UserBetDetail):
 
 class UserTotalGoalsBetDetail(UserBetDetail): 
     """ Handling the detailf of the total goals bet """
-
     permission_classes = [IsAuthenticated]
     queryset = UserTotalObjectsBet.objects.all()
     serializer_class = UserTotalObjectsBetSerializer

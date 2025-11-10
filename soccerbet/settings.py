@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # Application definition
 
@@ -163,6 +163,9 @@ USE_TZ = False
 CELERY_TIMEZONE = 'US/Central'
 CELERY_TASK_TRACK_STARTED = True
 # CELERY_TASK_TIME_LIMIT = 30 * 60
+
+#CELERY_BROKER_URL = env("BROKER_URL")
+#CELERY_RESULT_BACKEND = env("BROKER_URL")
 
 
 # Static files (CSS, JavaScript, Images)

@@ -3,7 +3,7 @@ from rest_framework.serializers import ValidationError
 from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from soccerapp.models import (
-    User, Match, Team, Comment, TeamRanking,
+    User, Match, Team, TeamRanking,
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo,
 )
 
@@ -61,26 +61,6 @@ class TeamSerializer(serializers.ModelSerializer):
         model = Team
         fields = '__all__'
 
-
-class CommentSerializer(serializers.ModelSerializer): 
-    """ Serializer of the list of comments, showing whether the comment is liked """
-    class Meta: 
-        model = Comment
-        fields = '__all__'
-
-    # show whether this comment is liked by request user and belongs to the user,
-    # related to user so it can't be done in ```to_representation()```
-    # they are read-only so can be easily ignored
-    is_liked_by_user = serializers.BooleanField(read_only=True) 
-    is_from_user = serializers.BooleanField(read_only=True)
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["username"] = instance.user.username
-        representation["created_time"] = instance.created_time.strftime("%m/%d/%Y %H:%M:%S")
-        representation["likes"] = instance.likes.count()
-        return representation
-    
 
 class TeamRankingSerializer(serializers.ModelSerializer): 
     """ Serializer of the team rank """
