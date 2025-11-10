@@ -42,7 +42,6 @@ paramiko==4.0.0
 pathspec==0.12.1
 prompt_toolkit==3.0.48
 psycopg==3.2.3
-psycopg2==2.9.10
 psycopg2-binary==2.9.11
 pycparser==2.23
 PyJWT==2.10.1
