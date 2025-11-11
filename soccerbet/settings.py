@@ -85,7 +85,7 @@ CORS_ALLOWED_ORIGINS = [
     'http://192.168.1.73:5173',
     'http://soccerbet-env2.eba-a2sqphq6.us-east-2.elasticbeanstalk.com'
 ]
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", 'soccerbet-env2.eba-a2sqphq6.us-east-2.elasticbeanstalk.com']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", '172.31.34.253', 'soccerbet-env2.eba-a2sqphq6.us-east-2.elasticbeanstalk.com']
 
 ROOT_URLCONF = 'soccerbet.urls'
 
