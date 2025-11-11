@@ -28,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 # Application definition
 
@@ -80,8 +80,12 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
 ]
 
-CORS_ALLOWED_ORIGINS = ['http://localhost:5173', 'http://192.168.1.73:5173']
-ALLOWED_HOSTS = ['*']
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173', 
+    'http://192.168.1.73:5173',
+    'http://soccerbet-env2.eba-a2sqphq6.us-east-2.elasticbeanstalk.com '
+]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", 'soccerbet-env2.eba-a2sqphq6.us-east-2.elasticbeanstalk.com ']
 
 ROOT_URLCONF = 'soccerbet.urls'
 
@@ -107,16 +111,9 @@ WSGI_APPLICATION = 'soccerbet.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-"""
-'default': {
-    'ENGINE': 'django.db.backends.sqlite3',
-    'NAME': BASE_DIR / 'db.sqlite3',
-}
-"""
-
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.postgresql_psycopg2",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DATABASE_NAME"),
         "USER": env("DATABASE_USER"),
         "PASSWORD": env("DATABASE_PASSWORD"),
