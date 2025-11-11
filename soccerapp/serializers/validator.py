@@ -59,10 +59,11 @@ class CustomValidator:
     
         total_bet_amount *= Decimal(1.05) # extra fees for placing the bets 
         # validate if the user's balance is sufficient 
-        if item_data["user"].balance < total_bet_amount: 
+        user = item_data["user"]
+        if user.balance < total_bet_amount: 
             raise DRFValidationError({
                 "error": "Sufficient balance to place these bets", 
-                "detail": f"Balance: ${item_data['user'].balance}, total amount: ${total_bet_amount}"
+                "detail": f"Balance: ${user.balance}, total amount: ${total_bet_amount}"
             })
         
         # return the bet list, and total bet amount of the list 
