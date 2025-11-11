@@ -9,7 +9,7 @@ from decimal import Decimal
 
 class CustomValidator: 
     """ Validator for bet info """
-    def __init__(self, info_class: Type[Model], bet_class: Type[Model]): 
+    def __init__(self, info_class: Type[Model]=None, bet_class: Type[Model]=None): 
         """ 
         Constructor, initializing appropriate bet info and user bet models 
         """
@@ -115,7 +115,7 @@ class CustomValidator:
         old_amount = instance.bet_amount
         old_bet_balance = current_user.balance + old_amount
         update_amount = update_data["bet_amount"]
-        
+
         if old_bet_balance < update_data: 
             raise DRFValidationError({
                 "error": "Insufficient balance to update bet to this amount",
