@@ -20,9 +20,13 @@ def test_upload_user_bets(matches: QuerySet[Match]):
     moneyline_bet_list, ix = [], 0
     for bet_info in moneyline_info_list: 
         moneyline_bet_list.append(UserMoneylineBet(
-            user=users[ix], bet_info=bet_info, created_date=date.today(), bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)),
+            user=users[ix], 
+            bet_info=bet_info, 
+            created_date=date.today(), 
+            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)),
         ))
         ix = (ix + 1) % len(users)
+        
     UserMoneylineBet.objects.bulk_create(moneyline_bet_list)
     print("Moneyline bet created successfully")
 
@@ -30,9 +34,13 @@ def test_upload_user_bets(matches: QuerySet[Match]):
     handicap_bet_list, ix = [], 0
     for bet_info in handicap_info_list: 
         handicap_bet_list.append(UserHandicapBet(
-            user=users[ix], bet_info=bet_info, created_date=date.today(), bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
+            user=users[ix], 
+            bet_info=bet_info, 
+            created_date=date.today(), 
+            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
         ))
         ix = (ix + 1) % len(users)
+
     UserHandicapBet.objects.bulk_create(handicap_bet_list)
     print("Handicap bet created successfully")
 
@@ -40,9 +48,13 @@ def test_upload_user_bets(matches: QuerySet[Match]):
     total_bet_list, ix = [], 0
     for bet_info in total_info_list: 
         total_bet_list.append(UserTotalObjectsBet(
-            user=users[ix], bet_info=bet_info, created_date=date.today(), bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
+            user=users[ix], 
+            bet_info=bet_info, 
+            created_date=date.today(), 
+            bet_amount=(100 if bet_info.odd > 0 else abs(bet_info.odd)), 
         ))
         ix = (ix + 1) % len(users)
+
     UserTotalObjectsBet.objects.bulk_create(total_bet_list)
     print("Total goals bet created successfully")
 
