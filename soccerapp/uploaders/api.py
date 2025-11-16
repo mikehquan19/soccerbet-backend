@@ -2,13 +2,12 @@ import requests
 import json
 import environ
 from datetime import date, timedelta
+from typing import Any, List
 
 
-def get_date_str(arg_date: date) -> str: 
+def get_date_str(date: date) -> str: 
     """ Process the date and return the string for API calling. """
-
-    # Process the first date 
-    year, month, day = arg_date.year, arg_date.month, arg_date.day
+    year, month, day = date.year, date.month, date.day
     if month < 10 and day < 10: 
         date_str = f"{year}-0{month}-0{day}"
     elif month < 10 and day > 10: 
@@ -20,96 +19,88 @@ def get_date_str(arg_date: date) -> str:
     return date_str
 
 
-def get_api_response(endpoint: str): 
-    base_url = "https://v3.football.api-sports.io"
+def get_api_response(endpoint: str) -> Any: 
     env = environ.Env()
     environ.Env.read_env()
-
     # API-key obtained from subscription to API-Football
     raw_response = requests.get(
-        f"{base_url}/{endpoint}", 
+        f"https://v3.football.api-sports.io/{endpoint}", 
         headers={
             'x-rapidapi-key': env("API_KEY"), 
-            'x-rapidapi-host': 'v3.football.api-sports.io'
-        },
+            'x-rapidapi-host': 'v3.football.api-sports.io',
+        }
     )
     response = json.loads(raw_response.text)["response"]
     return response
 
 
-def convert_american_odd(decimal_odd: float) -> int: 
+def convert_american_odd(european_odd: float) -> int: 
     """
-    Football-API is from France, so they use a different system of odd convert the obtained decimal odd 
-    and covert them to American odd
+    Football-API is from France, so they use a different system of odd.
+    Convert the obtained decimal odd to American odd
     """ 
-    if decimal_odd >= 2.00: 
-        american_odd = round((decimal_odd - 1) * 100)
-    elif decimal_odd < 2.00: 
-        american_odd = round(-100 / (decimal_odd - 1))
+    if european_odd >= 2.00: 
+        american_odd = round((european_odd - 1) * 100)
+    elif european_odd < 2.00: 
+        american_odd = round(-100 / (european_odd - 1))
     return american_odd
 
 
-def get_teams(league_id: int) -> list: 
-    """ Get the info about the team this season """
-    # Call the api to get raw data
+def get_teams(league_id: int) -> List: 
+    """Get the info about the team this season"""
     response = get_api_response(f"teams?league={league_id}&season=2025")
 
     # Process the raw data 
-    league_team_list = []
+    team_list = []
     for team in response: 
         # Add the info of team with given information to the list 
-        league_team_list.append({
+        team_list.append({
             "name": team["team"]["name"],
             "logo": team["team"]["logo"],
             "founded_year": team["team"]["founded"],
             "home_stadium": team["venue"]["name"],
             "stadium_image": team["venue"]["image"],
-            "description": f"",
         })
-    return league_team_list
+    return team_list
 
 
-def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> list:
-    """ Get the upcoming matches, should be called every week  """
-
+def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> List:
+    """Get the upcoming matches, should be called every week"""
     # Param is the endpoint to call matches
     response = get_api_response(
         f"fixtures?league={league_id}&season=2025&from={from_date}&to={to_date}")
 
     upcoming_match_list = []
-    for fixture in response:
+    for match in response:
         # Add the upcoming match with given information to the list 
         upcoming_match_list.append({
-            "match_id": fixture["fixture"]["id"],
-            "date": fixture["fixture"]["date"],
-            "home_team": fixture["teams"]["home"]["name"],
-            "home_team_logo": fixture["teams"]["home"]["logo"],
-            "away_team": fixture["teams"]["away"]["name"],
-            "away_team_logo": fixture["teams"]["away"]["logo"],
+            "match_id": match["fixture"]["id"],
+            "date": match["fixture"]["date"],
+            "home_team": match["teams"]["home"]["name"],
+            "away_team": match["teams"]["away"]["name"],
         })
     return upcoming_match_list
 
 
 def get_match_score(league_id: int, date: str) -> list:
-    """ Get the scores of all the matches of the given league on the given date """
+    """Get the scores of all the matches of the given league on the given date"""
     response = get_api_response(
         f"fixtures?date={date}&league={league_id}&season=2025&status=FT-AET-PEN")
  
     match_result_list = []
-    for fixture in response:
-        half_score = fixture["score"]["halftime"]
-        full_score = fixture["score"]["fulltime"]
-        penalty = fixture["score"]["penalty"]
+    for match in response:
+        half_score = match["score"]["halftime"]
+        full_score = match["score"]["fulltime"]
+        penalty = match["score"]["penalty"]
 
         # Get other stats of the matches of the league on the date 
-        response = get_api_response(f"fixtures/statistics?fixture={fixture["fixture"]["id"]}")
+        response = get_api_response(f"fixtures/statistics?fixture={match["fixture"]["id"]}")
         home_stat = response[0]["statistics"]
         away_stat = response[1]["statistics"]
 
         # Add the score to the the list of scores
-        # The game in the format "{home team's goals} - {away team"s goals}"
         match_result = {
-            "match_id": fixture["fixture"]["id"], 
+            "match_id": match["fixture"]["id"], 
             "halftime": f"{half_score["home"]}-{half_score["away"]}", 
             "fulltime": f"{full_score["home"]}-{full_score["away"]}",
             "penalty": f"{penalty["home"]}-{penalty["away"]}",
@@ -124,7 +115,7 @@ def get_match_score(league_id: int, date: str) -> list:
  
 
 def get_league_standings(league_id: int) -> dict: 
-    """ Get the standing of the league (should be every day) """
+    """Get the standing of the league (should be every day)"""
 
     raw_response = get_api_response(f"standings?league={league_id}&season=2025")
     response = []
@@ -133,7 +124,6 @@ def get_league_standings(league_id: int) -> dict:
 
     standing_list = []
     for standing in response: 
-        # Standing includes the rank, team, points, num_matches, wins, draws, and loses
         # Add the standing to the list 
         standing_list.append({
             "rank": standing["rank"],
@@ -170,7 +160,6 @@ def get_objects_bets(bet_object: str, bet_type: str, match_id: int) -> dict:
     ht_bet_id, ft_bet_id = type_to_id_dict[bet_type]
 
     # Different bookmakers offer different objects
-    # Response full-time and half-time 
     ht_response = get_api_response(
         f"odds?fixture={match_id}&season=2025&bookmaker={bookmaker}&bet={ht_bet_id}")
     ft_response = get_api_response(

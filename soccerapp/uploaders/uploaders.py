@@ -1,28 +1,26 @@
 from django.db import transaction
 from django.db.models import QuerySet, Count
 from django.utils import timezone
-from .api import (
+from soccerapp.uploaders.api import (
     get_teams, get_league_standings, get_not_started_matches, 
     get_winner_bets, get_total_bets, get_match_score
 )
-from .settle import settle_bet_list
-from .models import (
+from soccerapp.settle import settle_bet_list
+from soccerapp.models import (
     Team, TeamRanking, Match,
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo, 
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 ) 
 from datetime import date, timedelta
 import traceback
-from .api import get_date_str
+from soccerapp.uploaders.api import get_date_str
 
 @transaction.atomic
 def upload_teams() -> None: 
     """
     Upload data about the teams (for the comment and section part of the website).
-
     CALLED EVERY YEAR MANUALLY
     """
-
     leagues = {
         "Premiere League": 39, 
         "La Liga": 140, 
@@ -212,9 +210,7 @@ def generic_update_match_scores(league_name: str, league_id: int, given_date_str
 
 
 def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
-    """ 
-    Update the matches scores of matches finished today. 
-    """
+    """Update the matches scores of matches finished today"""
     given_date_str = get_date_str(date.today())
     # call above function 
     return generic_update_match_scores(league_name, league_id, given_date_str)
