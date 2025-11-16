@@ -86,7 +86,7 @@ class Match(models.Model):
     """The soccer Match"""
     league = models.CharField(max_length=20, choices=LEAGUE_CHOICES)
     match_id = models.IntegerField(unique=True)
-    started_at = models.DateTimeField()
+    started_at = models.DateTimeField(auto_now=True)
     home_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="home_team")
     away_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="away_team")
     status = models.CharField( # Finished matches will be deleted from the database in 7 days
@@ -95,7 +95,7 @@ class Match(models.Model):
         default="Not Finished"
     )
     class Meta: 
-        ordering = ["date"]
+        ordering = ["started_at"]
 
     def __str__(self) -> str:
         """Example: Real Madrid vs Barcelona"""
@@ -124,7 +124,7 @@ class MatchStat(models.Model):
 class MoneylineBetInfo(models.Model): 
     """The moneyline bet info"""
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    period = models.CharField(max_length=20, choices=PERIOD_CHOICES)
+    period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="Full-time")
     bet_object = models.CharField(
         max_length=20, 
         choices=BET_OBJECT_CHOICES, 
@@ -164,7 +164,7 @@ class UserMoneylineBet(models.Model):
 class HandicapBetInfo(models.Model): 
     """ The handicap bet info """
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    period = models.CharField(max_length=20, choices=PERIOD_CHOICES)
+    period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="Full-time")
     bet_object = models.CharField(
         max_length=20, 
         choices=BET_OBJECT_CHOICES, 
@@ -208,7 +208,7 @@ class UserHandicapBet(models.Model):
 class TotalObjectsBetInfo(models.Model): 
     """ The total goals bet info """
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
-    period = models.CharField(max_length=20, choices=PERIOD_CHOICES)
+    period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="Full-time")
     bet_object = models.CharField(
         max_length=50,
         choices=BET_OBJECT_CHOICES,
