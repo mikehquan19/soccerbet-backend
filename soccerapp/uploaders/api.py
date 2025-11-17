@@ -87,26 +87,31 @@ def get_match_score(league_id: int, date: str) -> list:
  
     match_result_list = []
     for match in response:
-        half_score = match["score"]["halftime"]
-        full_score = match["score"]["fulltime"]
-        penalty = match["score"]["penalty"]
+        match_result = {
+            "match_id": match["fixture"]["id"],
+            "stat": []
+        }
+        # Get the most important stats, scoreline
+        for type in ["Halftime", "Fulltime", "Penalty"]:
+            match_result["stat"].append({
+                "type": type + " score" if type != "Penalty" else type,
+                "home_stat": match["score"][type.lower()]["home"],
+                "away_stat": match["score"][type.lower()]["away"],
+            })
 
-        # Get other stats of the matches of the league on the date 
+        # Get other stats of the matches
         response = get_api_response(f"fixtures/statistics?fixture={match["fixture"]["id"]}")
         home_stat = response[0]["statistics"]
         away_stat = response[1]["statistics"]
 
-        # Add the score to the the list of scores
-        match_result = {
-            "match_id": match["fixture"]["id"], 
-            "halftime": f"{half_score["home"]}-{half_score["away"]}", 
-            "fulltime": f"{full_score["home"]}-{full_score["away"]}",
-            "penalty": f"{penalty["home"]}-{penalty["away"]}",
-            "total_shots": f"{home_stat[2]["value"]}-{away_stat[2]["value"]}",
-            "possession": f"{home_stat[9]["value"]}-{away_stat[9]["value"]}",
-            "corners": f"{home_stat[7]["value"]}-{away_stat[7]["value"]}",
-            "cards": f"{home_stat[10]["value"]}-{away_stat[10]["value"]}"
-        }
+        # The dict mapping type to the index to access data from API response
+        stat_type_dict = {"Total shots": 2, "Possesion": 9, "Corners": 7, "Yellow cards": 10}
+        for type, index in stat_type_dict.items():
+            match_result["stat"].append({
+                "type": type,
+                "home_stat": home_stat[index]["value"],
+                "away_stat": away_stat[index]["value"]
+            })
         match_result_list.append(match_result)
 
     return match_result_list
@@ -196,7 +201,7 @@ def get_object_winner_bets(
             try: 
                 american_odd = convert_american_odd(float(winner_odd["odd"]))
             except ZeroDivisionError: 
-                # Zero division (the bet has odd 1): 
+                # Zero division (the bet has odd 1),
                 # The european odd can't be converted to american odd
                 continue
             # Structure of the moneyline (or handicap) bet 
@@ -244,10 +249,10 @@ def get_object_total_bets(
 
 
 def get_bets(bet_type: str, match_id: int, home_team: str, away_team: str) -> list: 
-    """ Get bets of given type for goals, corners, and cards """
+    """Get bets of given type for goals, corners, and cards"""
     bet_list = []
     for bet_object in ["Goals", "Corners", "Cards"]:
-        if bet_type == "moneyline" or bet_type == "handicap":
+        if bet_type != "total_objects":
             new_bets = get_object_winner_bets(
                 bet_object, bet_type, match_id, home_team, away_team)
         else:
@@ -264,11 +269,10 @@ if __name__ == "__main__":
 
     # Get the matches from all the league 
     for league_name in list(leagues.keys()): 
-        upcoming_ucl_matches = get_not_started_matches(leagues[league_name], from_date, to_date)
-        for match in upcoming_ucl_matches: 
+        matches = get_not_started_matches(leagues[league_name], from_date, to_date)
+        for match in matches: 
             match_id = match["match_id"]
-            home = match["home_team"]
-            away = match["away_team"]
+            home, away = match["home_team"], match["away_team"]
 
             # 3 types of bet (full-time and half-time) of the match this turn 
             response = {

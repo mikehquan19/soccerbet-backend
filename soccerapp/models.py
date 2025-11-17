@@ -87,6 +87,7 @@ class Match(models.Model):
     league = models.CharField(max_length=20, choices=LEAGUE_CHOICES)
     match_id = models.IntegerField(unique=True)
     started_at = models.DateTimeField(default=timezone.now())
+    updated_at = models.DateTimeField(default=timezone.now())
     home_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="home_team")
     away_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="away_team")
     status = models.CharField( # Finished matches will be deleted from the database in 7 days
@@ -114,8 +115,8 @@ class MatchStat(models.Model):
         ("Corners", "corners"),
         ("Yellow cards", "yellow_cards"),
     ])
-    home_stat = models.IntegerField()
-    away_stat = models.IntegerField()
+    home_stat = models.IntegerField(null=True, blank=True)
+    away_stat = models.IntegerField(null=True, blank=True)
 
     def __str__(self) -> str:
         return f"{self.stat_type}: {self.home_stat}-{self.away_stat}"

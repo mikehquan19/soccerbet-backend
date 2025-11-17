@@ -4,7 +4,7 @@ from django.utils import timezone
 from soccerapp.uploaders.api import (
     get_teams, get_league_standings, get_not_started_matches, get_match_score
 )
-from soccerapp.models import Team, TeamRanking, Match
+from soccerapp.models import Team, TeamRanking, Match, MatchStat
 from datetime import date, timedelta
 import traceback
 from soccerapp.uploaders.api import get_date_str
@@ -32,7 +32,7 @@ def upload_teams() -> None:
                 for item in teams_data if item["name"] not in existing
             ]
             created_teams = Team.objects.bulk_create(teams)
-            print(f"{len(created_teams)} teams of {league} uploaded successfully!") 
+            print(f"{len(created_teams)} teams of {league} uploaded!") 
     except Exception as e: 
         # Print the exception in case something happened for immediate inspection
         traceback.print_exc()
@@ -61,7 +61,7 @@ def upload_team_rankings() -> None:
             league_standings.append(TeamRanking(league=name, team=team, **rank))
 
         TeamRanking.objects.bulk_create(league_standings)
-        print(f"Standings of {name} uploaded or updated successfully!")
+        print(f"Standings of {name} uploaded or updated!")
 
 
 def generic_upload_matches(
@@ -71,21 +71,21 @@ def generic_upload_matches(
     matches_data = get_not_started_matches(league_id, from_date, to_date)
     upcoming_matches = []
 
-    for item_data in matches_data:
+    for item in matches_data:
         # Process the data a little bit
-        started_at = timezone.datetime.fromisoformat(item_data["started_at"])
-        home_team = Team.objects.get(name=item_data["home_team"])
-        away_team = Team.objects.get(name=item_data["away_team"])
+        started_at = timezone.datetime.fromisoformat(item["started_at"])
+        home_team = Team.objects.get(name=item["home_team"])
+        away_team = Team.objects.get(name=item["away_team"])
 
         # Add the new match to the list
         upcoming_matches.append(Match(
             league=league_name,
-            match_id=item_data["match_id"], started_at=started_at,
+            match_id=item["match_id"], started_at=started_at,
             home_team=home_team, away_team=away_team
         ))
 
     created_matches = Match.objects.bulk_create(upcoming_matches) 
-    print(f"{len(created_matches)} matches of {league_name} uploaded successfully!")
+    print(f"{len(created_matches)} matches of {league_name} uploaded!")
     return created_matches
 
 
@@ -102,51 +102,40 @@ def generic_update_match_scores(
 ) -> QuerySet[Match]: 
     """Update the score of the matches on the given date"""
     match_scores_data = get_match_score(league_id, given_date_str)
-    matches = []
+    matches, stats = [], []
 
-    for match_score in match_scores_data:
+    for item in match_scores_data:
         try: 
             # Get the match that is already finished but "Not Finished" in the DB
-            match = Match.objects.get(match_id=match_score["match_id"], status="Not Finished")
+            match = Match.objects.get(match_id=item["match_id"], status="Not Finished")
             # update the main score
             match.status = "Finished"
-            match.updated_date = date.today()
-            match.halftime_score = match_score["halftime"]
-            match.fulltime_score = match_score["fulltime"]
-            match.penalty = match_score["penalty"]
+            match.updated_at = date.today()
 
-            # update the other stats for users to see 
-            match.possesion = match_score["possession"]
-            match.total_shots = match_score["total_shots"]
-            match.corners = match_score["corners"]
-            match.cards = match_score["cards"]
             matches.append(match)
+            stats.append(MatchStat(match=match, **item["stat"]))
 
         except Match.DoesNotExist: 
             # If the match doesn't exist, move to the next match
             pass
     
-    updated_field_list = [
-        "status", "updated_date", "halftime_score", "fulltime_score", "penalty", "possesion", "total_shots", "corners", "cards"
-    ]
-    num_updated_matches = Match.objects.bulk_update(
-        matches, 
-        updated_field_list, 
-        batch_size=100
-    )
-
+    num_updated = Match.objects.bulk_update(matches, ["status", "updated_at"])
+    create_stats = MatchStat.objects.bulk_create(stats)
+    if len(create_stats) // num_updated == 7:
+        raise RuntimeError("Not importing necessary stats")
+    
     # Get the updated queryset 
     updated_matches = Match.objects.filter(
         match_id__in=[match.match_id for match in matches]
     )
-    print(f"{num_updated_matches} finished matches of {league_name} updated successfully!")  
+
+    print(f"{num_updated} finished matches of {league_name} updated!")  
     return updated_matches
 
 
 def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
-    """Update the matches scores of matches finished today"""
-    given_date_str = get_date_str(date.today())
-    return generic_update_match_scores(league_name, league_id, given_date_str)
-
+    """Update the scores of matches finished today"""
+    date = get_date_str(date.today())
+    return generic_update_match_scores(league_name, league_id, date)
 
 if __name__ == "__main__": None

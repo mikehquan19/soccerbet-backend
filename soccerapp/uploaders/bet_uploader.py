@@ -15,8 +15,7 @@ def upload_match_bets(matches: QuerySet[Match]) -> None:
     """
     def generic_upload_bets(bet_type: str, match: Match) -> None:
         """Save the bets of specified types to database"""
-
-        info_data = get_bets(
+        bet_info_data = get_bets(
             bet_type, match.match_id, match.home_team.name, match.away_team.name
         )
         if bet_type == "moneyline": 
@@ -28,21 +27,21 @@ def upload_match_bets(matches: QuerySet[Match]) -> None:
         elif bet_type == "total_objects":
             fields = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
             info_class = TotalObjectsBetInfo
-        else:
-            raise ValueError("Invalid bet types")
 
-        existing_info = set(
+        existing_bet_info = set(
             tuple(getattr(bet_info, field) for field in fields)
             for bet_info in info_class.objects.filter(match=match)
         )
         info_list = []
-        for item_data in info_data:
-            info_keys = tuple(item_data[field] for field in fields)
-            if info_keys not in existing_info:
-                info_list.append(info_class(match=match, **item_data))
-
+        for item in bet_info_data:
+            info_keys = tuple(item[field] for field in fields)
+            if info_keys not in existing_bet_info:
+                info_list.append(info_class(
+                    match=match, 
+                    **item
+                ))
         created_list = info_class.objects.bulk_create(info_list)
-        print(f"{len(created_list)} {bet_type} of {match} uploaded successfully!") 
+        print(f"{len(created_list)} {bet_type} of {match} uploaded!") 
 
     for match in matches:
         for bet_type in ["moneyline", "handicap", "total_objects"]:
@@ -69,7 +68,7 @@ def delete_empty_bet_infos(matches: QuerySet[Match]) -> None:
             match=match, 
             bet_count=0
         ).delete()
-        print(f"Empty bet infos of match {match} deleted successfully!")
+        print(f"Empty bet infos of match {match} deleted!")
 
 
 def settle_bets(matches: QuerySet[Match]) -> None: 
