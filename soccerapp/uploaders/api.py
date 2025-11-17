@@ -51,16 +51,16 @@ def get_teams(league_id: int) -> List:
     response = get_api_response(f"teams?league={league_id}&season=2025")
 
     # Process the raw data 
-    team_list = []
-    for team in response: 
-        # Add the info of team with given information to the list 
-        team_list.append({
+    team_list = [
+        {
             "name": team["team"]["name"],
             "logo": team["team"]["logo"],
             "founded_year": team["team"]["founded"],
             "home_stadium": team["venue"]["name"],
             "stadium_image": team["venue"]["image"],
-        })
+        }
+        for team in response
+    ]
     return team_list
 
 
@@ -70,15 +70,15 @@ def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> Lis
     response = get_api_response(
         f"fixtures?league={league_id}&season=2025&from={from_date}&to={to_date}")
 
-    upcoming_match_list = []
-    for match in response:
-        # Add the upcoming match with given information to the list 
-        upcoming_match_list.append({
+    upcoming_match_list = [
+        {
             "match_id": match["fixture"]["id"],
             "started_at": match["fixture"]["date"],
             "home_team": match["teams"]["home"]["name"],
             "away_team": match["teams"]["away"]["name"],
-        })
+        }
+        for match in response
+    ]
     return upcoming_match_list
 
 
@@ -122,10 +122,8 @@ def get_league_standings(league_id: int) -> dict:
     if len(raw_response) > 0: 
         response = raw_response[0]["league"]["standings"][0]
 
-    standing_list = []
-    for standing in response: 
-        # Add the standing to the list 
-        standing_list.append({
+    standing_list = [
+        {
             "rank": standing["rank"],
             "team": standing["team"]["name"], 
             "points": standing["points"], 
@@ -133,7 +131,9 @@ def get_league_standings(league_id: int) -> dict:
             "num_wins": standing["all"]["win"], 
             "num_loses": standing["all"]["lose"], 
             "num_draws": standing["all"]["draw"],
-        })
+        }
+        for standing in response
+    ]
     return standing_list
 
  

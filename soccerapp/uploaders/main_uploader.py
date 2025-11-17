@@ -2,15 +2,10 @@ from django.db import transaction
 from django.db.models import QuerySet, Count
 from django.utils import timezone
 from soccerapp.uploaders.api import (
-    get_teams, get_league_standings, get_not_started_matches, 
-    get_winner_bets, get_total_bets, get_match_score
+    get_teams, get_league_standings, get_not_started_matches, get_match_score
 )
 from soccerapp.settle import settle_bet_list
-from soccerapp.models import (
-    Team, TeamRanking, Match,
-    MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo, 
-    UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
-) 
+from soccerapp.models import Team, TeamRanking, Match
 from datetime import date, timedelta
 import traceback
 from soccerapp.uploaders.api import get_date_str
@@ -103,61 +98,6 @@ def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]:
     return generic_upload_matches(league_name, league_id, from_date, to_date)
 
 
-def upload_match_bets(matches: QuerySet[Match]) -> None: 
-    """Upload of the bets for each match in the list of matches"""
-    for match in matches:
-        # Save the moneyline bets to database
-        moneyline_info_data = get_winner_bets(
-            "moneyline", match.match_id, match.home_team.name, match.away_team.name
-        )
-        MONEYLINE_FIELDS = ["period", "bet_object", "bet_team", "odd"]
-        existing = set(
-            (info.period, info.bet_object, info.bet_team, info.odd)
-            for info in match.moneylinebetinfo_set.all()
-        )
-        moneyline_info_list = [
-            MoneylineBetInfo(match=match, **item)
-            for item in moneyline_info_data
-            if tuple(item[f] for f in MONEYLINE_FIELDS) not in existing
-        ]
-        created = MoneylineBetInfo.objects.bulk_create(moneyline_info_list)
-        print(f"{len(created)} moneyline bets of {match} uploaded successfully!") 
-
-        # Save the handicap bets to the database
-        handicap_info_data = get_winner_bets(
-            "handicap", match.match_id, match.home_team.name, match.away_team.name
-        )
-        HANDICAP_FIELDS = ["period", "bet_object", "bet_team", "odd", "cover"]
-        existing = set(
-            (info.period, info.bet_object, info.bet_team, info.odd, info.cover)
-            for info in  match.handicapbetinfo_set.all()
-        )
-        handicap_info_list = [
-            HandicapBetInfo(match=match, **item)
-            for item in handicap_info_data
-            if tuple(item[k] for k in HANDICAP_FIELDS) not in existing
-        ]
-        created = HandicapBetInfo.objects.bulk_create(handicap_info_list)
-        print(f"{len(created)} handicap bets of {match} uploaded successfully!") 
-
-        # Save the total goals bets to the database
-        total_info_data = get_total_bets(
-            match.match_id, match.home_team.name, match.away_team.name
-        )
-        TOTAL_FIELDS = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
-        existing = set(
-            (info.period, info.bet_object, info.under_or_over, info.num_objects, info.odd)
-            for info in match.handicapbetinfo_set.all()
-        )
-        total_info_list = [
-            TotalObjectsBetInfo(match=match, **item)
-            for item in total_info_data
-            if tuple(item[k] for k in TOTAL_FIELDS) not in existing
-        ]
-        created = TotalObjectsBetInfo.objects.bulk_create(total_info_list)
-        print(f"{len(created)} total object bets of {match} uploaded successfully!")
-
-
 def generic_update_match_scores(
     league_name: str, league_id: int, given_date_str: str
 ) -> QuerySet[Match]: 
@@ -209,71 +149,5 @@ def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]:
     # call above function 
     return generic_update_match_scores(league_name, league_id, given_date_str)
 
-
-def delete_empty_bet_infos(matches: QuerySet[Match]) -> None: 
-    """ 
-    Delete the bet infos from the given queryset of matches that are without user bets 
-    """
-    for match in matches: 
-        # filter the queryset of bet info that has 0 corresponding user bets 
-        MoneylineBetInfo.objects.annotate(
-            bet_count=Count('usermoneylinebet')
-        ).filter(
-            match=match, bet_count=0
-        ).delete()
-
-        HandicapBetInfo.objects.annotate(
-            bet_count=Count('userhandicapbet')
-        ).filter(
-            match=match, bet_count=0
-        ).delete()
-
-        TotalObjectsBetInfo.objects.annotate(
-            bet_count=Count('usertotalobjectsbet')
-        ).filter(
-            match=match, bet_count=0
-        ).delete()
-
-        print(f"Empty bet infos of match {match} deleted successfully!")
-
-
-def settle_bets(matches: QuerySet[Match]) -> None: 
-    """
-    Settle the bets that are associated with the matches, and update the bet infos 
-    """
-
-    for match in matches: 
-        # Settle all the moneyline bets of the match 
-        moneyline_bet_list = UserMoneylineBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("moneyline", moneyline_bet_list)
-
-        # Update the status and settled date of list of bet info
-        MoneylineBetInfo.objects.filter(match=match).update(
-            status="Settled", 
-            settled_date=date.today()
-        )
-        print(f"{total} moneyline bets of match {match} settled!")
-
-        # Settle all the handicap bets of the match 
-        handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("handicap", handicap_bet_list)
-
-        # Update the status and settled date
-        HandicapBetInfo.objects.filter(match=match).update(
-            status="Settled", 
-            settled_date=date.today()
-        )
-        print(f"{total} handicap bets of match {match} settled!")
-
-        # Settle all the total goals bets of the match 
-        total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("total_objects", total_goals_bet_list)
-
-        # Update the status and settled date 
-        TotalObjectsBetInfo.objects.filter(match=match).update(
-            status="Settled", 
-            settled_date=date.today()
-        )
-        print(f"{total} total objects bets of match {match} settled!")
 
 if __name__ == "__main__": None
