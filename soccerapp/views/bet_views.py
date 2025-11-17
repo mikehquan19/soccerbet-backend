@@ -39,11 +39,17 @@ class UserMoneylineBetList(APIView):
  
     def get(self, request, format=None) -> Response: 
         status = request.query_params.get("status")
-        # get the response data and return 
+
         if status: 
             bet_list = UserMoneylineBet.objects.filter(user=request.user, bet_info__status=status)
         else: 
             bet_list = UserMoneylineBet.objects.filter(user=request.user)
+        bet_list = bet_list.select_related(
+            "bet_info", 
+            "bet_info__match",
+            "bet_info__match__home_team",
+            "bet_info__match__away_team",
+        )
         bet_list_serializer = UserMoneylineBetSerializer(bet_list, many=True)
         return Response(bet_list_serializer.data)
     
@@ -96,6 +102,7 @@ class UserMoneylineBetDetail(APIView):
             # Include the extra fees for placing the bets
             bet_owner.balance += bet_amount_difference * Decimal(1.05) 
             bet_owner.save()
+            
         return Response(updated_bet_serializer.data, status=status.HTTP_202_ACCEPTED)
     
     def delete(self, request, pk: int, format=None) -> Response: 
@@ -140,7 +147,8 @@ class UserBetList(generics.ListCreateAPIView):
 
         request_data = request.data
         # add user field to request data
-        for item_data in request_data: item_data['user'] = request.user.pk 
+        for item_data in request_data: 
+            item_data['user'] = request.user.pk 
 
         new_bet_list_serializer = self.get_serializer(data=request_data, many=True)
         new_bet_list_serializer.is_valid(raise_exception=True)
@@ -168,6 +176,12 @@ class UserHandicapBetList(UserBetList):
         else:
             handicap_bet_list = UserHandicapBet.objects.filter(
                 user=self.request.user, bet_info__status=status)
+        handicap_bet_list = handicap_bet_list.select_related(
+            "bet_info", 
+            "bet_info__match",
+            "bet_info__match__home_team",
+            "bet_info__match__away_team",
+        )
         return handicap_bet_list
     
 
@@ -183,8 +197,13 @@ class UserTotalGoalsBetList(UserBetList):
             total_bet_list = UserTotalObjectsBet.objects.filter(user=self.request.user)
         else: 
             total_bet_list = UserTotalObjectsBet.objects.filter(
-                user=self.request.user, bet_info__status=status
-            )
+                user=self.request.user, bet_info__status=status)
+        total_bet_list = total_bet_list.select_related(
+            "bet_info", 
+            "bet_info__match",
+            "bet_info__match__home_team",
+            "bet_info__match__away_team",
+        )
         return total_bet_list
     
 

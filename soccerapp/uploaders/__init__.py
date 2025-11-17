@@ -1,2 +1,3 @@
 from .api import *
-from .uploaders import *
+from .bet_uploader import *
+from .main_uploader import *
