@@ -1,10 +1,9 @@
 from django.db import transaction
-from django.db.models import QuerySet, Count
+from django.db.models import QuerySet
 from django.utils import timezone
 from soccerapp.uploaders.api import (
     get_teams, get_league_standings, get_not_started_matches, get_match_score
 )
-from soccerapp.settle import settle_bet_list
 from soccerapp.models import Team, TeamRanking, Match
 from datetime import date, timedelta
 import traceback
@@ -85,7 +84,7 @@ def generic_upload_matches(
             home_team=home_team, away_team=away_team
         ))
 
-    created_matches = Match.objects.bulk_create(upcoming_matches, batch_size=100) 
+    created_matches = Match.objects.bulk_create(upcoming_matches) 
     print(f"{len(created_matches)} matches of {league_name} uploaded successfully!")
     return created_matches
 
@@ -131,7 +130,9 @@ def generic_update_match_scores(
         "status", "updated_date", "halftime_score", "fulltime_score", "penalty", "possesion", "total_shots", "corners", "cards"
     ]
     num_updated_matches = Match.objects.bulk_update(
-        matches, updated_field_list, batch_size=100
+        matches, 
+        updated_field_list, 
+        batch_size=100
     )
 
     # Get the updated queryset 
@@ -145,7 +146,6 @@ def generic_update_match_scores(
 def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
     """Update the matches scores of matches finished today"""
     given_date_str = get_date_str(date.today())
-    # call above function 
     return generic_update_match_scores(league_name, league_id, given_date_str)
 
 

@@ -16,48 +16,45 @@ LEAGUES = {
     "League 1": 61,
 }
 
-@shared_task(bind=True, max_retries=1, default_retry_delay=60)
 @transaction.atomic
 def update_teams_rankings(self) -> None: 
-    """ 
-    CALLED EVERY 1 hour.
-    Run by only 1 worker 
-    """
-
+    """CALLED EVERY 1 hour. Run by only 1 worker"""
     try: 
         upload_team_rankings()
     except Exception as exc: 
-        raise self.retry(exc=exc)  # re-execute the task if something's wrong
+        raise self.retry(exc=exc) # re-execute the task if something's wrong
     
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=60)
 @transaction.atomic
-def upload_league_matches_and_bets(self, league_name: str) -> None: 
-    """ Retry 2 times in case of failure, each between 1 minute """
-
+def upload_league_matches_and_bets(league_name: str) -> None: 
+    """Retry 2 times in case of failure, each between 1 minute"""
     try: 
-        league_match_list = list(upload_matches(league_name, LEAGUES[league_name]))
-        upload_match_bets(league_match_list)
+        league_matches = upload_matches(league_name, LEAGUES[league_name])
+        upload_match_bets(league_matches)
     except Exception as exc: 
-        raise self.retry(exc=exc)
-    
+        raise exc
 
-@shared_task
+
 def upload_matches_and_bets() -> None: 
     """
-    Nesting the function within the transaction
-
-    CALLED MONDAY at 0 hours, to be run concurrently with 4 workers 
+    Nesting the function within the transaction.
+    CALLED MONDAY at 0 hours
     """
-    for i, league in enumerate(LEAGUES.keys()):
-        upload_league_matches_and_bets.apply_async((league,), countdown=i*10)
+    for league in list(LEAGUES.keys()):
+        upload_league_matches_and_bets(league)
+
+
+def upload_new_bets() -> None:
+    try: 
+        upload_match_bets(Match.objects.filter(status="Not Finished"))
+    except Exception as exc:
+        raise exc
 
 
 @shared_task(bind=True, max_retries=2, default_retry_delay=60)
 @transaction.atomic
 def update_league_scores_and_settle(self, league_name) -> None:
     """ Retry 2 times in case of failure, each between 1 minute """
-
     try: 
         updated_match_list = update_match_scores(league_name, LEAGUES[league_name])
         delete_empty_bet_infos(updated_match_list)
@@ -73,7 +70,6 @@ def update_scores_and_settle() -> None:
     CALLED EVERY HOUR AT 0 hours, to be run concurrently with 4 workers.
     Retry 2 times in case of failure, each between 2 minutes 
     """
-    
     leagues = group(
         update_league_scores_and_settle.s(league) for league in list(LEAGUES.keys())
     )
@@ -95,7 +91,7 @@ def delete_past_betinfos_and_matches(self) -> None:
         filter_date = date.today() - timedelta(days=14)
         # delete the list of finished matches 
         Match.objects.filter(
-            status="Finished", 
+            status="Finished",
             updated_date__lt=filter_date
         ).delete()
         print("Past matches and associated bet infos deleted successfully!")

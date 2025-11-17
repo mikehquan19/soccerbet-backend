@@ -51,16 +51,15 @@ def get_teams(league_id: int) -> List:
     response = get_api_response(f"teams?league={league_id}&season=2025")
 
     # Process the raw data 
-    team_list = [
-        {
-            "name": team["team"]["name"],
-            "logo": team["team"]["logo"],
-            "founded_year": team["team"]["founded"],
-            "home_stadium": team["venue"]["name"],
-            "stadium_image": team["venue"]["image"],
-        }
-        for team in response
-    ]
+    team_list = []
+    for item in response: 
+        team_list.append({
+            "name": item["team"]["name"],
+            "logo": item["team"]["logo"],
+            "founded_year": item["team"]["founded"],
+            "home_stadium": item["venue"]["name"],
+            "stadium_image": item["venue"]["image"],
+        })
     return team_list
 
 
@@ -70,15 +69,14 @@ def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> Lis
     response = get_api_response(
         f"fixtures?league={league_id}&season=2025&from={from_date}&to={to_date}")
 
-    upcoming_match_list = [
-        {
+    upcoming_match_list = []
+    for match in response:
+        upcoming_match_list.append({
             "match_id": match["fixture"]["id"],
             "started_at": match["fixture"]["date"],
             "home_team": match["teams"]["home"]["name"],
             "away_team": match["teams"]["away"]["name"],
-        }
-        for match in response
-    ]
+        })
     return upcoming_match_list
 
 
@@ -122,8 +120,9 @@ def get_league_standings(league_id: int) -> dict:
     if len(raw_response) > 0: 
         response = raw_response[0]["league"]["standings"][0]
 
-    standing_list = [
-        {
+    standing_list = []
+    for standing in response: 
+        standing_list.append({
             "rank": standing["rank"],
             "team": standing["team"]["name"], 
             "points": standing["points"], 
@@ -131,39 +130,36 @@ def get_league_standings(league_id: int) -> dict:
             "num_wins": standing["all"]["win"], 
             "num_loses": standing["all"]["lose"], 
             "num_draws": standing["all"]["draw"],
-        }
-        for standing in response
-    ]
+        })
     return standing_list
 
  
 def get_objects_bets(bet_object: str, bet_type: str, match_id: int) -> dict: 
     """ 
-    Call the api to get the data about the bet for given object with the given type 
+    Call the api to get the bet data for object with bet type 
     """
     response = {"Half-time": [], "Full-time": []}
 
     # Dictionary to map bet type to fulltime and halftime bet IDs
     if bet_object == "Goals":
-        type_to_id_dict = {
-            "moneyline": (13, 1), "handicap": (19, 9), "total_objects": (6, 5)}
+        type_to_id = {"moneyline": (13, 1), "handicap": (19, 9), "total_objects": (6, 5)}
         bookmaker = 1
     elif bet_object == "Corners":
-        type_to_id_dict = {
-            "moneyline": (130, 55), "handicap": (125, 56), "total_objects": (77, 45)}
+        type_to_id = {"moneyline": (130, 55), "handicap": (125, 56), "total_objects": (77, 45)}
         bookmaker = 11
     elif bet_object == "Cards":
-        type_to_id_dict = {
-            "moneyline": (161, 158), "handicap": (159, 81), "total_objects": (155, 80)}
+        type_to_id = {"moneyline": (161, 158), "handicap": (159, 81), "total_objects": (155, 80)}
         bookmaker = 8
+    else: 
+        raise ValueError("Invalid bet object")
 
-    ht_bet_id, ft_bet_id = type_to_id_dict[bet_type]
+    halftime_id, fulltime_id = type_to_id[bet_type]
 
     # Different bookmakers offer different objects
     ht_response = get_api_response(
-        f"odds?fixture={match_id}&season=2025&bookmaker={bookmaker}&bet={ht_bet_id}")
+        f"odds?fixture={match_id}&season=2025&bookmaker={bookmaker}&bet={halftime_id}")
     ft_response = get_api_response(
-        f"odds?fixture={match_id}&season=2025&bookmaker={bookmaker}&bet={ft_bet_id}")
+        f"odds?fixture={match_id}&season=2025&bookmaker={bookmaker}&bet={fulltime_id}")
     
     # Load them into iterable JSON object 
     if len(ht_response) > 0: 
@@ -175,8 +171,8 @@ def get_objects_bets(bet_object: str, bet_type: str, match_id: int) -> dict:
 
 
 def get_object_winner_bets(
-        bet_object: str, bet_type: str, match_id: int, home_team: str, away_team: str
-    ) -> list: 
+    bet_object: str, bet_type: str, match_id: int, home_team: str, away_team: str
+) -> list: 
     """
     Get the moneyline or handicap bets for the match (depending on user).
     ```bet_type: "moneyline" or "handicap"
@@ -187,24 +183,22 @@ def get_object_winner_bets(
     object_winner_bet_list = []
     for period in list(response.keys()): 
         for winner_odd in response[period]: 
-            winner_bet_value = winner_odd["value"].split()
+            winner_value = winner_odd["value"].split()
 
-            if winner_bet_value[0] == "Home": bet_team = home_team
-            elif winner_bet_value[0] == "Away": bet_team = away_team 
+            if winner_value[0] == "Home": bet_team = home_team
+            elif winner_value[0] == "Away": bet_team = away_team 
             else: 
                 if bet_type == "handicap": 
                     # If the type of bet is moneyline, account for draw. 
                     # Otherwise, go the next bets 
                     continue
-                bet_team = winner_bet_value[0] 
-
+                bet_team = winner_value[0] 
             try: 
                 american_odd = convert_american_odd(float(winner_odd["odd"]))
             except ZeroDivisionError: 
                 # Zero division (the bet has odd 1): 
                 # The european odd can't be converted to american odd
                 continue
-
             # Structure of the moneyline (or handicap) bet 
             winner_bet = {
                 "period": period,
@@ -214,23 +208,11 @@ def get_object_winner_bets(
             }
             if bet_type == "handicap": 
                 # If the type of bet is handicap, add the handicap coverage 
-                winner_bet["cover"] = float(winner_bet_value[1])
+                winner_bet["cover"] = float(winner_value[1])
 
             # Add the bet of the list 
             object_winner_bet_list.append(winner_bet)   
     return object_winner_bet_list
-        
-
-def get_winner_bets(bet_type: str, match_id: int, home_team: str, away_team: str) -> list : 
-    """ Get moneyline or handicap bets for goals, corners and cards  """
-    winner_bet_list = []
-    for bet_object in ["Goals", "Corners", "Cards"]: 
-        winner_bet_list.extend(
-            get_object_winner_bets(
-                bet_object, bet_type, match_id, home_team, away_team
-            )
-        )
-    return winner_bet_list
 
 
 def get_object_total_bets(
@@ -247,12 +229,10 @@ def get_object_total_bets(
         for total_objects_odd in response[period]: 
             under_or_over = total_objects_odd["value"].split()[0]
             num_objects = float(total_objects_odd["value"].split()[1])
-
             try: 
                 american_odd = convert_american_odd(float(total_objects_odd["odd"]))
             except ZeroDivisionError: 
                 continue
-
             total_objects_bet_list.append({
                 "period": period,
                 "bet_object": bet_object,
@@ -263,27 +243,24 @@ def get_object_total_bets(
     return total_objects_bet_list
 
 
-def get_total_bets(match_id: int, home_team: str, away_team: str) -> list: 
-    """ Get total bets for goals, corners, and cards """
-    total_objects_bet_list = []
-    for bet_object in ["Goals", "Corners", "Cards"]: 
-        total_objects_bet_list.extend(
-            get_object_total_bets(
-                bet_object, match_id, home_team, away_team
-            )
-        )
-    return total_objects_bet_list
+def get_bets(bet_type: str, match_id: int, home_team: str, away_team: str) -> list: 
+    """ Get bets of given type for goals, corners, and cards """
+    bet_list = []
+    for bet_object in ["Goals", "Corners", "Cards"]:
+        if bet_type == "moneyline" or bet_type == "handicap":
+            new_bets = get_object_winner_bets(
+                bet_object, bet_type, match_id, home_team, away_team)
+        else:
+            new_bets = get_object_total_bets(
+                bet_object, match_id, home_team, away_team)
+        bet_list.extend(new_bets)
+    return bet_list
 
 
 if __name__ == "__main__": 
     leagues = {"ucl": 2, "epl": 39, "lal": 140, "bun": 78}
     from_date = get_date_str(date.today())
-    weekday = date.today().weekday()
-
-    if weekday >= 0 and weekday <= 3: # monday to thursday
-        to_date = get_date_str(date.today() + timedelta(days=(3 - weekday)))
-    else: # friday to sunday
-        to_date = get_date_str(date.today() + timedelta(days=(6 - weekday)))
+    to_date = get_date_str(date.today() + timedelta(days=7))
 
     # Get the matches from all the league 
     for league_name in list(leagues.keys()): 
@@ -296,8 +273,8 @@ if __name__ == "__main__":
             # 3 types of bet (full-time and half-time) of the match this turn 
             response = {
                 "fixture": match, 
-                "moneyline_bets": get_winner_bets("moneyline", match_id, home, away), 
-                "handicap_bets": get_winner_bets("handicap", match_id, home, away), 
-                "total_goals_bets": get_total_bets(match_id, home, away),
+                "moneyline_bets": get_bets("moneyline", match_id, home, away), 
+                "handicap_bets": get_bets("handicap", match_id, home, away), 
+                "total_goals_bets": get_bets("total_objects", match_id, home, away),
             }
             print(json.dumps(response, indent=4))

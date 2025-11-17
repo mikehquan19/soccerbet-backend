@@ -86,7 +86,7 @@ class Match(models.Model):
     """The soccer Match"""
     league = models.CharField(max_length=20, choices=LEAGUE_CHOICES)
     match_id = models.IntegerField(unique=True)
-    started_at = models.DateTimeField(auto_now=True)
+    started_at = models.DateTimeField(default=timezone.now())
     home_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="home_team")
     away_team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name="away_team")
     status = models.CharField( # Finished matches will be deleted from the database in 7 days

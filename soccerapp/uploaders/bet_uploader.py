@@ -1,5 +1,5 @@
 from django.db.models import QuerySet, Count
-from soccerapp.uploaders.api import get_winner_bets, get_total_bets
+from soccerapp.uploaders.api import get_bets
 from soccerapp.settle import settle_bet_list
 from soccerapp.models import (
     Match,
@@ -10,107 +10,92 @@ from datetime import date
 
 
 def upload_match_bets(matches: QuerySet[Match]) -> None: 
-    """Upload the bets that don't exist for each match in the list"""
+    """
+    Upload the bets that don't exist for the list of matches
+    """
+    def generic_upload_bets(bet_type: str, match: Match) -> None:
+        """Save the bets of specified types to database"""
 
-    def generic_upload_bets(bet_type: str, match: Match):
-        match_id, home, away = match.match_id, match.home_team.name, match.away_team.name
-        
+        info_data = get_bets(
+            bet_type, match.match_id, match.home_team.name, match.away_team.name
+        )
         if bet_type == "moneyline": 
-            info_data = get_winner_bets("moneyline", match_id, home, away)
             fields = ["period", "bet_object", "bet_team", "odd"]
             info_class = MoneylineBetInfo
         elif bet_type == "handicap":
-            info_data = get_winner_bets("handicap", match_id, home, away)
             fields = ["period", "bet_object", "bet_team", "odd", "cover"]
             info_class = HandicapBetInfo
-        else: 
-            info_data = get_total_bets(match_id, home, away)
+        elif bet_type == "total_objects":
             fields = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
-            info_class = MoneylineBetInfo
+            info_class = TotalObjectsBetInfo
+        else:
+            raise ValueError("Invalid bet types")
 
-        existing_info = set()
-        for bet_info in info_class.objects.filter(match=match):
-            existing_info.add(
-                tuple(bet_info.getattr(f) for f in fields)
-            )
+        existing_info = set(
+            tuple(getattr(bet_info, field) for field in fields)
+            for bet_info in info_class.objects.filter(match=match)
+        )
         info_list = []
-        for item in info_data:
-            info_tuple = tuple(item[f] for f in fields)
-            if info_tuple not in existing_info:
-                info_list.append(info_class(match=match, **item))
+        for item_data in info_data:
+            info_keys = tuple(item_data[field] for field in fields)
+            if info_keys not in existing_info:
+                info_list.append(info_class(match=match, **item_data))
 
-        created_info_list = info_class.objects.bulk_create(info_list)
-        print(f"{len(created_info_list)} {bet_type} of {match} uploaded successfully!") 
+        created_list = info_class.objects.bulk_create(info_list)
+        print(f"{len(created_list)} {bet_type} of {match} uploaded successfully!") 
 
     for match in matches:
         for bet_type in ["moneyline", "handicap", "total_objects"]:
-            # Save the bets of specified types to database
             generic_upload_bets(bet_type, match)
 
 
 def delete_empty_bet_infos(matches: QuerySet[Match]) -> None: 
     """ 
-    Delete the bet infos from the given queryset of matches that are without user bets 
+    Delete the bet infos from the queryset of matches 
+    that are without user bets 
     """
     for match in matches: 
-        # filter the queryset of bet info that has 0 corresponding user bets 
-        MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')
-        ).filter(
-            match=match, bet_count=0
+        # Filter the queryset of bet info that has 0 corresponding user bets 
+        MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')).filter(
+            match=match, 
+            bet_count=0
         ).delete()
-
-        HandicapBetInfo.objects.annotate(
-            bet_count=Count('userhandicapbet')
-        ).filter(
-            match=match, bet_count=0
+        HandicapBetInfo.objects.annotate(bet_count=Count('userhandicapbet')).filter(
+            match=match, 
+            bet_count=0
         ).delete()
-
-        TotalObjectsBetInfo.objects.annotate(
-            bet_count=Count('usertotalobjectsbet')
+        TotalObjectsBetInfo.objects.annotate(bet_count=Count('usertotalobjectsbet')
         ).filter(
-            match=match, bet_count=0
+            match=match, 
+            bet_count=0
         ).delete()
-
         print(f"Empty bet infos of match {match} deleted successfully!")
 
 
 def settle_bets(matches: QuerySet[Match]) -> None: 
-    """
-    Settle the bets that are associated with the matches, and update the bet infos 
-    """
+    """Settle the bets of the matches, and update the bet infos"""
 
-    for match in matches: 
-        # Settle all the moneyline bets of the match 
-        moneyline_bet_list = UserMoneylineBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("moneyline", moneyline_bet_list)
+    def generic_settle_bets(bet_type: str, match: Match) -> None:
+        """Settle all bets of given type of the match"""
+        if bet_type == "moneyline":
+            bet_class, info_class = UserMoneylineBet, MoneylineBetInfo
+        elif bet_type == "handicap":
+            bet_class, info_class = UserHandicapBet, HandicapBetInfo
+        elif bet_type == "total_objects":
+            bet_class, info_class = UserTotalObjectsBet, TotalObjectsBetInfo
+        
+        bet_list = bet_class.objects.filter(bet_info__match=match)
+        num_bets, num_users = settle_bet_list(bet_type, bet_list)
 
         # Update the status and settled date of list of bet info
-        MoneylineBetInfo.objects.filter(match=match).update(
-            status="Settled", 
+        info_class.objects.filter(match=match).update(
+            status="Settled",
             settled_date=date.today()
         )
-        print(f"{total} moneyline bets of match {match} settled!")
+        print(f"{num_bets} {bet_type} bets of {match} settled from {num_users}!")
 
-        # Settle all the handicap bets of the match 
-        handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("handicap", handicap_bet_list)
-
-        # Update the status and settled date
-        HandicapBetInfo.objects.filter(match=match).update(
-            status="Settled", 
-            settled_date=date.today()
-        )
-        print(f"{total} handicap bets of match {match} settled!")
-
-        # Settle all the total goals bets of the match 
-        total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match)
-        total, _ = settle_bet_list("total_objects", total_goals_bet_list)
-
-        # Update the status and settled date 
-        TotalObjectsBetInfo.objects.filter(match=match).update(
-            status="Settled", 
-            settled_date=date.today()
-        )
-        print(f"{total} total objects bets of match {match} settled!")
+    for match in matches: 
+        for bet_type in ["moneyline", "handicap", "total_objects"]:
+            generic_settle_bets(bet_type, match)
 
 if __name__ == "__main__": None
