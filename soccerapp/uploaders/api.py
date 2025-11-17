@@ -6,7 +6,7 @@ from typing import Any, List
 
 
 def get_date_str(date: date) -> str: 
-    """ Process the date and return the string for API calling. """
+    """Convert date to string for API calling"""
     year, month, day = date.year, date.month, date.day
     if month < 10 and day < 10: 
         date_str = f"{year}-0{month}-0{day}"
@@ -26,7 +26,7 @@ def get_api_response(endpoint: str) -> Any:
     raw_response = requests.get(
         f"https://v3.football.api-sports.io/{endpoint}", 
         headers={
-            'x-rapidapi-key': env("API_KEY"), 
+            'x-rapidapi-key': "ff80d75fb2fa72353ed4c5092a474eac", 
             'x-rapidapi-host': 'v3.football.api-sports.io',
         }
     )
@@ -75,7 +75,7 @@ def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> Lis
         # Add the upcoming match with given information to the list 
         upcoming_match_list.append({
             "match_id": match["fixture"]["id"],
-            "date": match["fixture"]["date"],
+            "started_at": match["fixture"]["date"],
             "home_team": match["teams"]["home"]["name"],
             "away_team": match["teams"]["away"]["name"],
         })
@@ -185,8 +185,8 @@ def get_object_winner_bets(
     response = get_objects_bets(bet_object, bet_type, match_id)
 
     object_winner_bet_list = []
-    for time_type in list(response.keys()): 
-        for winner_odd in response[time_type]: 
+    for period in list(response.keys()): 
+        for winner_odd in response[period]: 
             winner_bet_value = winner_odd["value"].split()
 
             if winner_bet_value[0] == "Home": bet_team = home_team
@@ -207,15 +207,14 @@ def get_object_winner_bets(
 
             # Structure of the moneyline (or handicap) bet 
             winner_bet = {
-                "match": f"{home_team} vs {away_team}",
-                "time_type": time_type,
+                "period": period,
                 "bet_object": bet_object,
                 "bet_team": bet_team, 
                 "odd": american_odd,
             }
             if bet_type == "handicap": 
                 # If the type of bet is handicap, add the handicap coverage 
-                winner_bet["handicap_cover"] = float(winner_bet_value[1])
+                winner_bet["cover"] = float(winner_bet_value[1])
 
             # Add the bet of the list 
             object_winner_bet_list.append(winner_bet)   
@@ -244,10 +243,10 @@ def get_object_total_bets(
     response = get_objects_bets(bet_object, "total_objects", match_id)
     total_objects_bet_list = [] 
 
-    for time_type in list(response.keys()): 
-        for total_objects_odd in response[time_type]: 
-            under_or_over_value = total_objects_odd["value"].split()[0]
-            target_num = float(total_objects_odd["value"].split()[1])
+    for period in list(response.keys()): 
+        for total_objects_odd in response[period]: 
+            under_or_over = total_objects_odd["value"].split()[0]
+            num_objects = float(total_objects_odd["value"].split()[1])
 
             try: 
                 american_odd = convert_american_odd(float(total_objects_odd["odd"]))
@@ -255,11 +254,10 @@ def get_object_total_bets(
                 continue
 
             total_objects_bet_list.append({
-                "match": f"{home_team} vs {away_team}", 
-                "time_type": time_type,
+                "period": period,
                 "bet_object": bet_object,
-                "under_or_over": under_or_over_value, 
-                "num_objects": target_num, 
+                "under_or_over": under_or_over, 
+                "num_objects": num_objects, 
                 "odd": american_odd,
             })
     return total_objects_bet_list

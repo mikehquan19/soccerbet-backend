@@ -54,7 +54,7 @@ class Team(models.Model):
     name = models.CharField(max_length=50, unique=True)
     nickname = models.CharField(max_length=100, null=True, blank=True)
     logo = models.URLField(null=True, blank=True)
-    founded_year = models.IntegerField()
+    founded_year = models.IntegerField(null=True, blank=True)
     home_stadium = models.CharField(max_length=100)
     stadium_image = models.URLField(null=True, blank=True)
     description = models.TextField() 
