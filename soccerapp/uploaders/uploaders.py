@@ -33,10 +33,10 @@ def upload_teams() -> None:
         for league in list(league_dict.keys()): 
             teams_data = get_teams(league_dict[league])
             existing = set(team.name for team in Team.objects.all())
-            teams = []
-            for item_data in teams_data:
-                if item_data["name"] not in existing:
-                    teams.append(Team(league=league, **item_data))
+            teams = [
+                Team(league=league, **item)
+                for item in teams_data if item["name"] not in existing
+            ]
             created_teams = Team.objects.bulk_create(teams)
             print(f"{len(created_teams)} teams of {league} uploaded successfully!") 
     except Exception as e: 
@@ -64,9 +64,7 @@ def upload_team_rankings() -> None:
         league_standings = []
         for rank in api_ranks_data:
             team=Team.objects.get(name=rank.pop("team"))
-            league_standings.append(TeamRanking(
-                league=name, team=team, **rank
-            ))
+            league_standings.append(TeamRanking(league=name, team=team, **rank))
 
         TeamRanking.objects.bulk_create(league_standings)
         print(f"Standings of {name} uploaded or updated successfully!")
@@ -112,18 +110,16 @@ def upload_match_bets(matches: QuerySet[Match]) -> None:
         moneyline_info_data = get_winner_bets(
             "moneyline", match.match_id, match.home_team.name, match.away_team.name
         )
-        existing = set()
-        for info in match.moneylinebetinfo_set.all():
-            existing.add((
-                info.period, info.bet_object, info.bet_team, info.odd
-            ))
-        moneyline_info_list = []
-        for item in moneyline_info_data:
-            info = tuple(item[k] for k in ["period", "bet_object", "bet_team", "odd"])
-            if info not in existing:
-                moneyline_info_list.append(
-                    MoneylineBetInfo(match=match, **item)
-                ) 
+        MONEYLINE_FIELDS = ["period", "bet_object", "bet_team", "odd"]
+        existing = set(
+            (info.period, info.bet_object, info.bet_team, info.odd)
+            for info in match.moneylinebetinfo_set.all()
+        )
+        moneyline_info_list = [
+            MoneylineBetInfo(match=match, **item)
+            for item in moneyline_info_data
+            if tuple(item[f] for f in MONEYLINE_FIELDS) not in existing
+        ]
         created = MoneylineBetInfo.objects.bulk_create(moneyline_info_list)
         print(f"{len(created)} moneyline bets of {match} uploaded successfully!") 
 
@@ -131,18 +127,16 @@ def upload_match_bets(matches: QuerySet[Match]) -> None:
         handicap_info_data = get_winner_bets(
             "handicap", match.match_id, match.home_team.name, match.away_team.name
         )
-        existing = set()
-        for info in match.handicapbetinfo_set.all():
-            existing.add((
-                info.period, info.bet_object, info.bet_team, info.odd, info.cover
-            ))
-        handicap_info_list = []
-        for item in handicap_info_data: 
-            info = tuple(item[k] for k in ["period", "bet_object", "bet_team", "odd", "cover"])
-            if info not in existing:
-                handicap_info_list.append(
-                    HandicapBetInfo(match=match, **item)
-                )
+        HANDICAP_FIELDS = ["period", "bet_object", "bet_team", "odd", "cover"]
+        existing = set(
+            (info.period, info.bet_object, info.bet_team, info.odd, info.cover)
+            for info in  match.handicapbetinfo_set.all()
+        )
+        handicap_info_list = [
+            HandicapBetInfo(match=match, **item)
+            for item in handicap_info_data
+            if tuple(item[k] for k in HANDICAP_FIELDS) not in existing
+        ]
         created = HandicapBetInfo.objects.bulk_create(handicap_info_list)
         print(f"{len(created)} handicap bets of {match} uploaded successfully!") 
 
@@ -150,18 +144,16 @@ def upload_match_bets(matches: QuerySet[Match]) -> None:
         total_info_data = get_total_bets(
             match.match_id, match.home_team.name, match.away_team.name
         )
-        existing = set()
-        for info in match.handicapbetinfo_set.all():
-            existing.add((
-                info.period, info.bet_object, info.under_or_over, info.num_objects, info.odd
-            ))
-        total_info_list = [] 
-        for item in total_info_data: 
-            info = tuple(item[k] for k in ["period", "bet_object", "under_or_over", "num_objects", "odd"])
-            if info not in existing:
-                total_info_list.append(
-                    TotalObjectsBetInfo(match=match, **item)
-                )
+        TOTAL_FIELDS = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
+        existing = set(
+            (info.period, info.bet_object, info.under_or_over, info.num_objects, info.odd)
+            for info in match.handicapbetinfo_set.all()
+        )
+        total_info_list = [
+            TotalObjectsBetInfo(match=match, **item)
+            for item in total_info_data
+            if tuple(item[k] for k in TOTAL_FIELDS) not in existing
+        ]
         created = TotalObjectsBetInfo.objects.bulk_create(total_info_list)
         print(f"{len(created)} total object bets of {match} uploaded successfully!")
 
@@ -261,7 +253,7 @@ def settle_bets(matches: QuerySet[Match]) -> None:
             settled_date=date.today()
         )
         print(f"{total} moneyline bets of match {match} settled!")
-                        
+
         # Settle all the handicap bets of the match 
         handicap_bet_list = UserHandicapBet.objects.filter(bet_info__match=match)
         total, _ = settle_bet_list("handicap", handicap_bet_list)
@@ -272,11 +264,11 @@ def settle_bets(matches: QuerySet[Match]) -> None:
             settled_date=date.today()
         )
         print(f"{total} handicap bets of match {match} settled!")
-                            
+
         # Settle all the total goals bets of the match 
         total_goals_bet_list = UserTotalObjectsBet.objects.filter(bet_info__match=match)
         total, _ = settle_bet_list("total_objects", total_goals_bet_list)
-        
+
         # Update the status and settled date 
         TotalObjectsBetInfo.objects.filter(match=match).update(
             status="Settled", 
