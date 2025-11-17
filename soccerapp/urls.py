@@ -18,9 +18,9 @@ urlpatterns = [
     path('matches/<int:match_id>', views.MatchDetail.as_view()),
 
     # endpoints for the bet info
-    path('match/<int:match_id>/moneyline_bet_info', views.MoneylineInfoList.as_view()),
-    path('match/<int:match_id>/handicap_bet_info', views.HandicapInfoList.as_view()),
-    path('match/<int:match_id>/total_bet_info', views.TotalObjectsInfoList.as_view()), 
+    path('matches/<int:match_id>/moneyline_bet_info', views.MoneylineInfoList.as_view()),
+    path('matches/<int:match_id>/handicap_bet_info', views.HandicapInfoList.as_view()),
+    path('matches/<int:match_id>/total_bet_info', views.TotalObjectsInfoList.as_view()), 
 
     # endpoints for the list of bets of the user 
     path('moneyline_bets', views.UserMoneylineBetList.as_view()), 

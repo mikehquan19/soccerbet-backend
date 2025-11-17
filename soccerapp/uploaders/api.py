@@ -59,8 +59,14 @@ def get_teams(league_id: int) -> List:
             "founded_year": item["team"]["founded"],
             "home_stadium": item["venue"]["name"],
             "stadium_image": item["venue"]["image"],
+            "description": get_description(item["team"]["name"])
         })
     return team_list
+
+
+def get_description(team: str):
+    """Get the descriptionn of the team"""
+    return f"This is {team}"
 
 
 def get_not_started_matches(league_id: int, from_date: str, to_date: str) -> List:
@@ -92,7 +98,7 @@ def get_match_score(league_id: int, date: str) -> list:
             "stat": []
         }
         # Get the most important stats, scoreline
-        for type in ["Halftime", "Fulltime", "Penalty"]:
+        for score in ["Halftime", "Fulltime", "Penalty"]:
             match_result["stat"].append({
                 "type": type + " score" if type != "Penalty" else type,
                 "home_stat": match["score"][type.lower()]["home"],
@@ -103,8 +109,7 @@ def get_match_score(league_id: int, date: str) -> list:
         response = get_api_response(f"fixtures/statistics?fixture={match["fixture"]["id"]}")
         home_stat = response[0]["statistics"]
         away_stat = response[1]["statistics"]
-
-        # The dict mapping type to the index to access data from API response
+        # The dict mapping type to index to access data from API response
         stat_type_dict = {"Total shots": 2, "Possesion": 9, "Corners": 7, "Yellow cards": 10}
         for type, index in stat_type_dict.items():
             match_result["stat"].append({
@@ -113,7 +118,6 @@ def get_match_score(league_id: int, date: str) -> list:
                 "away_stat": away_stat[index]["value"]
             })
         match_result_list.append(match_result)
-
     return match_result_list
  
 
@@ -140,9 +144,7 @@ def get_league_standings(league_id: int) -> dict:
 
  
 def get_objects_bets(bet_object: str, bet_type: str, match_id: int) -> dict: 
-    """ 
-    Call the api to get the bet data for object with bet type 
-    """
+    """Call the api to get the bet data for object with bet type"""
     response = {"Half-time": [], "Full-time": []}
 
     # Dictionary to map bet type to fulltime and halftime bet IDs
@@ -198,6 +200,7 @@ def get_object_winner_bets(
                     # Otherwise, go the next bets 
                     continue
                 bet_team = winner_value[0] 
+                
             try: 
                 american_odd = convert_american_odd(float(winner_odd["odd"]))
             except ZeroDivisionError: 
@@ -238,6 +241,7 @@ def get_object_total_bets(
                 american_odd = convert_american_odd(float(total_objects_odd["odd"]))
             except ZeroDivisionError: 
                 continue
+
             total_objects_bet_list.append({
                 "period": period,
                 "bet_object": bet_object,
@@ -254,10 +258,12 @@ def get_bets(bet_type: str, match_id: int, home_team: str, away_team: str) -> li
     for bet_object in ["Goals", "Corners", "Cards"]:
         if bet_type != "total_objects":
             new_bets = get_object_winner_bets(
-                bet_object, bet_type, match_id, home_team, away_team)
+                bet_object, bet_type, match_id, home_team, away_team
+            )
         else:
             new_bets = get_object_total_bets(
-                bet_object, match_id, home_team, away_team)
+                bet_object, match_id, home_team, away_team
+            )
         bet_list.extend(new_bets)
     return bet_list
 

@@ -64,7 +64,7 @@ class Team(models.Model):
         return self.name
     
 class TeamRanking(models.Model): 
-    """ Ranking of the team in the league  """
+    """Ranking of the team in the league"""
     league = models.CharField(max_length=20, choices=LEAGUE_CHOICES)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
     rank = models.IntegerField()
@@ -163,7 +163,7 @@ class UserMoneylineBet(models.Model):
     
 
 class HandicapBetInfo(models.Model): 
-    """ The handicap bet info """
+    """The handicap bet info"""
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
     period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="Full-time")
     bet_object = models.CharField(
@@ -207,7 +207,7 @@ class UserHandicapBet(models.Model):
     
 
 class TotalObjectsBetInfo(models.Model): 
-    """ The total goals bet info """
+    """The total goals bet info"""
     match = models.ForeignKey(Match, on_delete=models.CASCADE)
     period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default="Full-time")
     bet_object = models.CharField(

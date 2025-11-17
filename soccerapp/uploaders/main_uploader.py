@@ -26,11 +26,12 @@ def upload_teams() -> None:
     try: 
         for league in list(league_dict.keys()): 
             teams_data = get_teams(league_dict[league])
-            existing = set(team.name for team in Team.objects.all())
-            teams = [
-                Team(league=league, **item)
-                for item in teams_data if item["name"] not in existing
-            ]
+            existing_teams = set(team.name for team in Team.objects.all())
+            teams = []
+            for item in teams_data: 
+                if item["name"] not in existing_teams:
+                    teams.append(Team(league=league, **item))
+
             created_teams = Team.objects.bulk_create(teams)
             print(f"{len(created_teams)} teams of {league} uploaded!") 
     except Exception as e: 
@@ -40,7 +41,6 @@ def upload_teams() -> None:
 
 def upload_team_rankings() -> None: 
     """ Upload (or update) data about the standings of the team """
-
     leagues = {
         "Champions League": 2,
         "Premiere League": 39, 
@@ -49,14 +49,13 @@ def upload_team_rankings() -> None:
         "Serie A": 135,
         "Ligue 1": 61,
     }
-
     for name in list(leagues.keys()): 
         # Delete the current standings 
         TeamRanking.objects.filter(league=name).delete()
         # Import the new standings 
-        api_ranks_data = get_league_standings(leagues[name])
+        ranks_data = get_league_standings(leagues[name])
         league_standings = []
-        for rank in api_ranks_data:
+        for rank in ranks_data:
             team=Team.objects.get(name=rank.pop("team"))
             league_standings.append(TeamRanking(league=name, team=team, **rank))
 
@@ -121,21 +120,22 @@ def generic_update_match_scores(
     
     num_updated = Match.objects.bulk_update(matches, ["status", "updated_at"])
     create_stats = MatchStat.objects.bulk_create(stats)
-    if len(create_stats) // num_updated == 7:
-        raise RuntimeError("Not importing necessary stats")
+
+    if num_updated != 0:
+        if len(create_stats) // num_updated == 7:
+            raise RuntimeError("Not importing necessary stats")
     
     # Get the updated queryset 
     updated_matches = Match.objects.filter(
         match_id__in=[match.match_id for match in matches]
     )
-
     print(f"{num_updated} finished matches of {league_name} updated!")  
     return updated_matches
 
 
 def update_match_scores(league_name: str, league_id: int) -> QuerySet[Match]: 
     """Update the scores of matches finished today"""
-    date = get_date_str(date.today())
-    return generic_update_match_scores(league_name, league_id, date)
+    today = get_date_str(date.today())
+    return generic_update_match_scores(league_name, league_id, today)
 
 if __name__ == "__main__": None

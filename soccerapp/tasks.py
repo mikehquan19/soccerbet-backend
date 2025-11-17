@@ -17,12 +17,12 @@ LEAGUES = {
 }
 
 @transaction.atomic
-def update_teams_rankings(self) -> None: 
+def update_teams_rankings() -> None: 
     """CALLED EVERY 1 hour. Run by only 1 worker"""
     try: 
         upload_team_rankings()
     except Exception as exc: 
-        raise self.retry(exc=exc) # re-execute the task if something's wrong
+        raise exc # re-execute the task if something's wrong
     
 
 @transaction.atomic
@@ -44,6 +44,7 @@ def upload_matches_and_bets() -> None:
         upload_league_matches_and_bets(league)
 
 
+@transaction.atomic
 def upload_new_bets() -> None:
     try: 
         upload_match_bets(Match.objects.filter(status="Not Finished"))
@@ -51,9 +52,8 @@ def upload_new_bets() -> None:
         raise exc
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=60)
 @transaction.atomic
-def update_league_scores_and_settle(self, league_name) -> None:
+def update_league_scores_and_settle(league_name) -> None:
     """ Retry 2 times in case of failure, each between 1 minute """
     try: 
         updated_match_list = update_match_scores(league_name, LEAGUES[league_name])
@@ -61,22 +61,18 @@ def update_league_scores_and_settle(self, league_name) -> None:
         settle_bets(updated_match_list)
         print(f"{league_name}'s matches and bets settled successfully!")
     except Exception as exc: 
-        raise self.retry(exc=exc)
+        raise exc
 
 
-@shared_task
 def update_scores_and_settle() -> None: 
     """
     CALLED EVERY HOUR AT 0 hours, to be run concurrently with 4 workers.
     Retry 2 times in case of failure, each between 2 minutes 
     """
-    leagues = group(
-        update_league_scores_and_settle.s(league) for league in list(LEAGUES.keys())
-    )
-    leagues.apply_async()
+    for league in list(LEAGUES.keys()):
+        update_league_scores_and_settle(league)
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=60)
 @transaction.atomic
 def delete_past_betinfos_and_matches(self) -> None: 
     """
@@ -91,7 +87,7 @@ def delete_past_betinfos_and_matches(self) -> None:
         filter_date = date.today() - timedelta(days=14)
         # delete the list of finished matches 
         Match.objects.filter(
-            status="Finished",
+            status="Finished", 
             updated_date__lt=filter_date
         ).delete()
         print("Past matches and associated bet infos deleted successfully!")
