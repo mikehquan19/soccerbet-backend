@@ -11,38 +11,36 @@ from datetime import date
 
 def upload_match_bets(matches: QuerySet[Match]) -> None: 
     """Upload the bets that don't exist for each match in the list"""
-    
+
     def generic_upload_bets(bet_type: str, match: Match):
+        match_id, home, away = match.match_id, match.home_team.name, match.away_team.name
+        
         if bet_type == "moneyline": 
-            info_data = get_winner_bets(
-                "moneyline", match.match_id, match.home_team.name, match.away_team.name
-            )
+            info_data = get_winner_bets("moneyline", match_id, home, away)
             fields = ["period", "bet_object", "bet_team", "odd"]
             info_class = MoneylineBetInfo
         elif bet_type == "handicap":
-            info_data = get_winner_bets(
-                "handicap", match.match_id, match.home_team.name, match.away_team.name
-            )
+            info_data = get_winner_bets("handicap", match_id, home, away)
             fields = ["period", "bet_object", "bet_team", "odd", "cover"]
             info_class = HandicapBetInfo
         else: 
-            info_data = get_total_bets(
-                match.match_id, match.home_team.name, match.away_team.name
-            )
+            info_data = get_total_bets(match_id, home, away)
             fields = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
             info_class = MoneylineBetInfo
 
-        existing_info = set(
-            tuple(bet_info.getattr(field) for field in fields)
-            for bet_info in info_class.objects.filter(match=match)
-        )
-        info_list = [
-            info_class(match=match, **item_data)
-            for item_data in info_data
-            if tuple(item_data[field] for field in fields) not in existing_info
-        ]
-        created = info_class.objects.bulk_create(info_list)
-        print(f"{len(created)} {bet_type} of {match} uploaded successfully!") 
+        existing_info = set()
+        for bet_info in info_class.objects.filter(match=match):
+            existing_info.add(
+                tuple(bet_info.getattr(f) for f in fields)
+            )
+        info_list = []
+        for item in info_data:
+            info_tuple = tuple(item[f] for f in fields)
+            if info_tuple not in existing_info:
+                info_list.append(info_class(match=match, **item))
+
+        created_info_list = info_class.objects.bulk_create(info_list)
+        print(f"{len(created_info_list)} {bet_type} of {match} uploaded successfully!") 
 
     for match in matches:
         for bet_type in ["moneyline", "handicap", "total_objects"]:
@@ -56,8 +54,7 @@ def delete_empty_bet_infos(matches: QuerySet[Match]) -> None:
     """
     for match in matches: 
         # filter the queryset of bet info that has 0 corresponding user bets 
-        MoneylineBetInfo.objects.annotate(
-            bet_count=Count('usermoneylinebet')
+        MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')
         ).filter(
             match=match, bet_count=0
         ).delete()

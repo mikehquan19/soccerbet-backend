@@ -139,7 +139,6 @@ def generic_update_match_scores(
         match_id__in=[match.match_id for match in matches]
     )
     print(f"{num_updated_matches} finished matches of {league_name} updated successfully!")  
-    
     return updated_matches
 
 
