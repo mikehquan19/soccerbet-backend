@@ -2,16 +2,14 @@ from django.test import TestCase
 from unittest.mock import patch
 from django.db.models import Model
 from soccerapp.tests.factories import *
-
-from soccerapp.models import (
-    MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo
-)
-from soccerapp.uploaders import upload_match_bets, delete_empty_bet_infos
+from soccerapp.models import *
+from soccerapp.uploaders import upload_match_bets, delete_empty_bet_infos, settle_bets
+from datetime import date
 
 class BetUploaderTests(TestCase):
 
     @patch("soccerapp.uploaders.bet_uploader.get_bets")
-    def test_upload_bets_to_db(self, mock_get_bets):
+    def test_upload_bets_to_db(self, mock_get_bets) -> None:
         """
         Test ```upload_match_bets(matches: list[Match]), whether it: 
         - Uploads the list of bets of 3 types for each of 2 matches
@@ -80,10 +78,13 @@ class BetUploaderTests(TestCase):
 
         # Create a user bet of selected info
         for i in selected:
-            UserMoneylineBetFactory(user=user, bet_info=created_infos[i])
+            _ = UserMoneylineBetFactory(
+                user=user, bet_info=created_infos[i]
+            )
 
+        delete_empty_bet_infos(Match.objects.filter(id=match.id))
+         
         # Unit should remove the 3rd, 4th, & 6th info
-        delete_empty_bet_infos([match])
         self.assertEqual(MoneylineBetInfo.objects.count(), 3)
         
         # The remaining info should be equal to selected infos
@@ -91,6 +92,33 @@ class BetUploaderTests(TestCase):
             self.assertEqual(info.bet_team, teams[i])
 
 
-    def test_settle_bets(self):
+    @patch("soccerapp.uploaders.bet_uploader.settle_bet_list")
+    def test_settle_bets(self, mock_settle_bet_list):
         """Test ```settle_bets(matches: Queryset[Match])```"""
-        pass
+
+        def fake_settle_bet_list(bet_type, bet_list):
+            # We assume that we only have one user currently in the app
+            return len(bet_list), 1
+        mock_settle_bet_list.side_effect = fake_settle_bet_list
+        
+        # Create a user and a finished match
+        user = UserFactory()
+        match = MatchFactory(
+            home_team=TeamFactory(name="A"), away_team=TeamFactory(name="B"),
+            status="Finished"
+        )
+        
+        # Create a list of bet info and their corresponding user bet
+        # (not really needed)
+        for _ in range(5):
+            created_info = MoneylineBetInfoFactory(match=match)
+            _ = UserMoneylineBetFactory(user=user, bet_info=created_info)
+
+        settle_bets(Match.objects.filter(id=match.id))
+
+        # The unit should update all the bet info to be settled with recorded time
+        for info in MoneylineBetInfo.objects.filter(match=match):
+            self.assertEqual(info.status, "Settled")
+            self.assertEqual(info.settled_at, date.today())
+
+        

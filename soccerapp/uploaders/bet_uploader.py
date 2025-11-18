@@ -92,7 +92,7 @@ def settle_bets(matches: QuerySet[Match]) -> None:
         # Update the status and settled date of list of bet info
         info_class.objects.filter(match=match).update(
             status="Settled",
-            settled_date=date.today()
+            settled_at=date.today()
         )
         print(f"{num_bets} {bet_type} bets from {num_users} of {match} settled!")
 
