@@ -10,6 +10,11 @@ from datetime import date
 from typing import Type
 from django.db.models import Model
 
+TYPE_TO_INFO_CLASS: dict[str, Type[Model]] = {
+    "moneyline": MoneylineBetInfo,
+    "handicap": HandicapBetInfo, 
+    "total_objects": TotalObjectsBetInfo
+}
 
 def upload_match_bets(matches: list[Match]) -> None: 
     """Upload the bets that don't exist for the list of matches"""
@@ -20,37 +25,30 @@ def upload_match_bets(matches: list[Match]) -> None:
             bet_type, match.match_id, match.home_team.name, match.away_team.name
         )
         # The combination of fields that can uniquely identify a bet
-        type_to_composite = {
-            "moneyline": ["period", "bet_object", "bet_team", "odd"],
-            "handicap": ["period", "bet_object", "bet_team", "odd", "cover"],
-            "total_objects": ["period", "bet_object", "under_or_over", "num_objects", "odd"]
+        type_to_compound: dict[str, list[str]] = {
+            "moneyline": ["bet_team"],
+            "handicap": ["bet_team", "cover"],
+            "total_objects": ["under_or_over", "num_objects"],
         }
-        composite_fields = type_to_composite[bet_type]
-
-        type_to_class: dict[str, Type[Model]] = {
-            "moneyline": MoneylineBetInfo,
-            "handicap": HandicapBetInfo, 
-            "total_objects": TotalObjectsBetInfo
-        }
-        info_class = type_to_class[bet_type]
+        compound_fields = ["period", "bet_object", "odd"] + type_to_compound[bet_type]
+        info_class = TYPE_TO_INFO_CLASS[bet_type]
 
         # The idea is that we place all bet info of the match in a set, 
         # then check if the info from API matches existing info.
         existing_info = set(
-            tuple(getattr(bet_info, field) for field in composite_fields)
+            tuple(getattr(bet_info, field) for field in compound_fields)
             for bet_info in info_class.objects.filter(match=match)
         )
         info_list = []
         for item in bet_info_data:
-            keys = tuple(item[field] for field in composite_fields)
+            keys = tuple(item[field] for field in compound_fields)
             if keys not in existing_info:
                 info_list.append(info_class(match=match, **item))
 
         created_list = info_class.objects.bulk_create(info_list)
         print(f"{len(created_list)} {bet_type} of {match} uploaded!") 
 
-    # matches is the list, instead of the queryset,
-    # so convert them.
+    # matches is the list, instead of the queryset, so convert them.
     # Eager fetch to avoid N+1 query problem.
     queryset = Match.objects.filter(
         id__in=[match.id for match in matches]).select_related("home_team", "away_team")
@@ -79,15 +77,15 @@ def delete_empty_bet_infos(matches: QuerySet[Match]) -> None:
 def settle_bets(matches: QuerySet[Match]) -> None: 
     """Settle the bets of the matches, and update the bet infos"""
 
-    def generic_settle_bets(bet_type: str, match: Match) -> None:
+    def generic_settle_bets(bet_type: str, match: Match):
         """Settle all bets of given bet type of the match"""
-        if bet_type == "moneyline":
-            bet_class, info_class = UserMoneylineBet, MoneylineBetInfo
-        elif bet_type == "handicap":
-            bet_class, info_class = UserHandicapBet, HandicapBetInfo
-        else:
-            bet_class, info_class = UserTotalObjectsBet, TotalObjectsBetInfo
-        
+        type_to_bet_class: dict[str, Type[Model]] = {
+            "moneyline": UserMoneylineBet,
+            "handicap": UserHandicapBet, 
+            "total_objects": UserTotalObjectsBet,
+        }
+        bet_class, info_class = type_to_bet_class[bet_type], TYPE_TO_INFO_CLASS[bet_type]
+
         bet_list = bet_class.objects.filter(bet_info__match=match)
         num_bets, num_users = settle_bet_list(bet_type, bet_list)
 
@@ -96,11 +94,10 @@ def settle_bets(matches: QuerySet[Match]) -> None:
             status="Settled",
             settled_date=date.today()
         )
-        print(f"{num_bets} {bet_type} bets of {match} settled from {num_users}!")
+        print(f"{num_bets} {bet_type} bets from {num_users} of {match} settled!")
 
     for match in matches: 
         for bet_type in ["moneyline", "handicap", "total_objects"]:
             generic_settle_bets(bet_type, match)
 
-if __name__ == "__main__": 
-    None
+if __name__ == "__main__": None
