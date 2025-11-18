@@ -91,8 +91,8 @@ def generic_upload_matches(
 def upload_matches(league_name: str, league_id: int) -> QuerySet[Match]: 
     """Upload data about the matches periodically to the database"""
     # First date and last date of the week 
-    from_date: str = get_date_str(date.today())
-    to_date: str = get_date_str(date.today() + timedelta(days=7))
+    from_date = get_date_str(date.today())
+    to_date = get_date_str(date.today() + timedelta(days=7))
     return generic_upload_matches(league_name, league_id, from_date, to_date)
 
 

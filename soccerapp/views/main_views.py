@@ -88,11 +88,11 @@ class MatchList(APIView):
         
         # Avoid the N+1 Query problems
         if league is None: 
-            match_list = Match.objects.filter(
-                status=STATUS_MAP[status]).select_related("home_team", "away_team")
+            match_list = Match.objects.filter(status=STATUS_MAP[status])
         else: 
-            match_list = Match.objects.filter(
-                league=LEAGUES_MAP[league], status=STATUS_MAP[status]).select_related("home_team", "away_team")
+            match_list = Match.objects.filter(league=LEAGUES_MAP[league], status=STATUS_MAP[status])
+        match_list = match_list.select_related("home_team", "away_team")
+
         match_list_serializer = MatchSerializer(match_list, many=True)
         return Response(match_list_serializer.data)
     
@@ -248,8 +248,8 @@ class TotalObjectsInfoList(APIView):
         for period in list(response_data.keys()): 
             # List of total goals bet info for this time type
             info_list = TotalObjectsBetInfo.objects.filter(
-                match=match, 
-                bet_object=bet_object, 
+                match=match,
+                bet_object=bet_object,
                 period=PERIOD_MAP[period]).select_related("match", "match__home_team", "match__away_team")
             # Serialize data of the list 
             info_list_serializer = TotalObjectsBetInfoSerializer(info_list, many=True)

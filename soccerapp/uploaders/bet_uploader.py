@@ -11,32 +11,30 @@ from datetime import date
 
 def upload_match_bets(matches: list[Match]) -> None: 
     """Upload the bets that don't exist for the list of matches"""
-
     def generic_upload_bets(bet_type: str, match: Match):
         """Save the bets of specified types to database"""
-        
+
         bet_info_data = get_bets(
             bet_type, match.match_id, match.home_team.name, match.away_team.name
         )
+        # The combination of fields that can uniquely identify a bet
+        composite_fields = list(bet_info_data[0].keys())
         if bet_type == "moneyline": 
-            compound_fields = ["period", "bet_object", "bet_team", "odd"]
             info_class = MoneylineBetInfo
         elif bet_type == "handicap":
-            compound_fields = ["period", "bet_object", "bet_team", "odd", "cover"]
             info_class = HandicapBetInfo
         else:
-            compound_fields = ["period", "bet_object", "under_or_over", "num_objects", "odd"]
             info_class = TotalObjectsBetInfo
 
         # The idea is that we place all bet info of the match in a set, 
-        # then checking if the info from API matches existing bets.
+        # then check if the info from API matches existing bets.
         existing_info = set(
-            tuple(getattr(bet_info, field) for field in compound_fields)
+            tuple(getattr(bet_info, field) for field in composite_fields)
             for bet_info in info_class.objects.filter(match=match)
         )
         info_list = []
         for item in bet_info_data:
-            keys = tuple(item[field] for field in compound_fields)
+            keys = tuple(item[field] for field in composite_fields)
             if keys not in existing_info:
                 info_list.append(info_class(match=match, **item))
 
@@ -45,8 +43,9 @@ def upload_match_bets(matches: list[Match]) -> None:
 
     # matches is the list of Matches, instead of the queryset,
     # so convert them.
-    queryset = Match.objects.filter(id__in=[m.id for m in matches]).select_related(
-        "home_team", "away_team")
+    # Eager fetch to avoid N+1 query problem.
+    queryset = Match.objects.filter(
+        id__in=[match.id for match in matches]).select_related("home_team", "away_team")
     for match in queryset:
         for bet_type in ["moneyline", "handicap", "total_objects"]:
             generic_upload_bets(bet_type, match)
@@ -54,10 +53,10 @@ def upload_match_bets(matches: list[Match]) -> None:
 
 def delete_empty_bet_infos(matches: QuerySet[Match]) -> None: 
     """ 
-    Delete the bet infos from the queryset of matches that are without user bets 
+    Delete the bet infos from the queryset of matches without user bets 
     """
     for match in matches: 
-        # Filter the queryset of bet info that has 0 corresponding user bets 
+        # Filter the queryset of bet info that has 0 user bets 
         MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')).filter(
             match=match, bet_count=0
         ).delete()
