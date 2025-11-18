@@ -7,27 +7,35 @@ from soccerapp.models import (
     UserMoneylineBet, UserHandicapBet, UserTotalObjectsBet
 ) 
 from datetime import date
+from typing import Type
+from django.db.models import Model
 
 
 def upload_match_bets(matches: list[Match]) -> None: 
     """Upload the bets that don't exist for the list of matches"""
+    
     def generic_upload_bets(bet_type: str, match: Match):
         """Save the bets of specified types to database"""
-
         bet_info_data = get_bets(
             bet_type, match.match_id, match.home_team.name, match.away_team.name
         )
         # The combination of fields that can uniquely identify a bet
-        composite_fields = list(bet_info_data[0].keys())
-        if bet_type == "moneyline": 
-            info_class = MoneylineBetInfo
-        elif bet_type == "handicap":
-            info_class = HandicapBetInfo
-        else:
-            info_class = TotalObjectsBetInfo
+        type_to_composite = {
+            "moneyline": ["period", "bet_object", "bet_team", "odd"],
+            "handicap": ["period", "bet_object", "bet_team", "odd", "cover"],
+            "total_objects": ["period", "bet_object", "under_or_over", "num_objects", "odd"]
+        }
+        composite_fields = type_to_composite[bet_type]
+
+        type_to_class: dict[str, Type[Model]] = {
+            "moneyline": MoneylineBetInfo,
+            "handicap": HandicapBetInfo, 
+            "total_objects": TotalObjectsBetInfo
+        }
+        info_class = type_to_class[bet_type]
 
         # The idea is that we place all bet info of the match in a set, 
-        # then check if the info from API matches existing bets.
+        # then check if the info from API matches existing info.
         existing_info = set(
             tuple(getattr(bet_info, field) for field in composite_fields)
             for bet_info in info_class.objects.filter(match=match)
@@ -38,10 +46,10 @@ def upload_match_bets(matches: list[Match]) -> None:
             if keys not in existing_info:
                 info_list.append(info_class(match=match, **item))
 
-        created = info_class.objects.bulk_create(info_list)
-        print(f"{len(created)} {bet_type} of {match} uploaded!") 
+        created_list = info_class.objects.bulk_create(info_list)
+        print(f"{len(created_list)} {bet_type} of {match} uploaded!") 
 
-    # matches is the list of Matches, instead of the queryset,
+    # matches is the list, instead of the queryset,
     # so convert them.
     # Eager fetch to avoid N+1 query problem.
     queryset = Match.objects.filter(
@@ -55,19 +63,16 @@ def delete_empty_bet_infos(matches: QuerySet[Match]) -> None:
     """ 
     Delete the bet infos from the queryset of matches without user bets 
     """
+    type_to_class: dict[str, Type[Model]] = {
+        "moneyline": MoneylineBetInfo,
+        "handicap": HandicapBetInfo, 
+        "totalobjects": TotalObjectsBetInfo
+    }
     for match in matches: 
-        # Filter the queryset of bet info that has 0 user bets 
-        MoneylineBetInfo.objects.annotate(bet_count=Count('usermoneylinebet')).filter(
-            match=match, bet_count=0
-        ).delete()
-
-        HandicapBetInfo.objects.annotate(bet_count=Count('userhandicapbet')).filter(
-            match=match, bet_count=0
-        ).delete()
-
-        TotalObjectsBetInfo.objects.annotate(bet_count=Count('usertotalobjectsbet')).filter(
-            match=match, bet_count=0
-        ).delete()
+        for bet_type, info_class in type_to_class.items():
+            info_class.objects.annotate(bet_count=Count(f"user{bet_type}bet")).filter(
+                match=match, bet_count=0
+            ).delete()
         print(f"Empty bet infos of match {match} deleted!")
 
 
