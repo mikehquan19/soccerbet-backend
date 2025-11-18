@@ -97,7 +97,8 @@ class BetUploaderTests(TestCase):
         """Test ```settle_bets(matches: Queryset[Match])```"""
 
         def fake_settle_bet_list(bet_type, bet_list):
-            # We assume that we only have one user currently in the app
+            # We assume that there is only one user in the app,
+            # The complex logic within this unit would be tested separately
             return len(bet_list), 1
         mock_settle_bet_list.side_effect = fake_settle_bet_list
         
@@ -108,8 +109,7 @@ class BetUploaderTests(TestCase):
             status="Finished"
         )
         
-        # Create a list of bet info and their corresponding user bet
-        # (not really needed)
+        # Create a list of bet info and their corresponding user bet (not really needed)
         for _ in range(5):
             created_info = MoneylineBetInfoFactory(match=match)
             _ = UserMoneylineBetFactory(user=user, bet_info=created_info)
