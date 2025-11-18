@@ -1,21 +1,19 @@
 from django.test import TestCase
 from unittest.mock import patch
-from typing import Type
 from django.db.models import Model
+from soccerapp.tests.factories import *
 
 from soccerapp.models import (
-    Team, Match, 
     MoneylineBetInfo, HandicapBetInfo, TotalObjectsBetInfo
 )
-from soccerapp.uploaders import get_bets
-from soccerapp.uploaders import upload_match_bets
+from soccerapp.uploaders import upload_match_bets, delete_empty_bet_infos
 
 class BetUploaderTests(TestCase):
 
     @patch("soccerapp.uploaders.bet_uploader.get_bets")
     def test_upload_bets_to_db(self, mock_get_bets):
         """
-        This will test ```upload_match_bets(matches: list[Match]), whether it: 
+        Test ```upload_match_bets(matches: list[Match]), whether it: 
         - Uploads the list of bets of 3 types for each of 2 matches
         - Don't upload the one that already exists in DB
         """
@@ -37,38 +35,62 @@ class BetUploaderTests(TestCase):
             }
             return type_to_bet_dict[bet_type]
         
-        # Mock the function get_bets
+        # Mock the function and the instances
         mock_get_bets.side_effect = fake_get_bets
-
-        # Fake teams and matches for testing
-        A = Team.objects.create(
-            league="Ligue 1", name="A", home_stadium="", description="")
-        B = Team.objects.create(
-            league="Ligue 1", name="B", home_stadium="", description="")
-        match = Match.objects.create(
-            league="Ligue 1", match_id="10000", home_team=A, away_team=B)
+        match = MatchFactory(
+            home_team=TeamFactory(name="A"), away_team=TeamFactory(name="B")
+        )
         
-        # Mapping showing expected results
+        # Dictionary mapping the type of bet info to number info it should have
         class_to_count: dict[type[Model], int] = {
             MoneylineBetInfo: 2, 
             HandicapBetInfo: 1, 
             TotalObjectsBetInfo: 1
         }
-
-        # The function should upload the correct number of bet info
+        # Unit should upload the correct number of bet info
         upload_match_bets([match])
-        for info_class, count in class_to_count.items():
-            self.assertEqual(info_class.objects.count(), count)
+        for info_class, num_infos in class_to_count.items():
+            self.assertEqual(info_class.objects.count(), num_infos)
 
-        # The function should not upload any new bet infos because they are already in the DB
+        # Unit should not upload any new bet info because they are already in the DB
         upload_match_bets([match])
-        for info_class, count in class_to_count.items():
-            self.assertEqual(info_class.objects.count(), count)
+        for info_class, num_infos in class_to_count.items():
+            self.assertEqual(info_class.objects.count(), num_infos)
 
     
     def test_delete_empty_bet_infos(self):
-        """
-        This will test ```delete_empty_bet_infos(matches: QuerySet[Match])
-        """
+        """Test ```delete_empty_bet_infos(matches: QuerySet[Match])"""
+        # Mock all of the necessary instances
+        user = UserFactory()
+        match = MatchFactory(
+            home_team=TeamFactory(name="A"), away_team=TeamFactory(name="B")
+        )
         
+        # Create the list of bet infos
+        teams = ["A", "B", "B", "A", "Draw", "B"]
+        # Indices of info in teams selected to have user bet (1st, 2nd, 5th)
+        selected = [0, 1, 4]
+
+        created_infos = []
+        for team in teams:
+            created_infos.append(MoneylineBetInfoFactory(
+                match=match, bet_team=team
+            ))
+        self.assertEqual(MoneylineBetInfo.objects.count(), 6)
+
+        # Create a user bet of selected info
+        for i in selected:
+            UserMoneylineBetFactory(user=user, bet_info=created_infos[i])
+
+        # Unit should remove the 3rd, 4th, & 6th info
+        delete_empty_bet_infos([match])
+        self.assertEqual(MoneylineBetInfo.objects.count(), 3)
+        
+        # The remaining info should be equal to selected infos
+        for info, i in zip(MoneylineBetInfo.objects.all(), selected):
+            self.assertEqual(info.bet_team, teams[i])
+
+
+    def test_settle_bets(self):
+        """Test ```settle_bets(matches: Queryset[Match])```"""
         pass
